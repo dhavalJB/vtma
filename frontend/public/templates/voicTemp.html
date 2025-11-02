@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>VOIC — Verified Organization Identity Certificate</title>
+    <style>
+      :root {
+        --accent: #0f172a;
+        --muted: #6b7280;
+      }
+      body {
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto,
+          "Helvetica Neue", Arial;
+        padding: 16px;
+        background: #f8fafc;
+        color: var(--accent);
+      }
+      .card {
+        max-width: 720px;
+        margin: 12px auto;
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 6px 24px rgba(15, 23, 42, 0.06);
+      }
+      header {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .logo {
+        width: 56px;
+        height: 56px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #6366f1, #0ea5a4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+      }
+      h1 {
+        font-size: 1.05rem;
+        margin: 0;
+      }
+      .meta {
+        margin-top: 12px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .grid {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+      .box {
+        flex: 1;
+        min-width: 180px;
+      }
+      .qr {
+        width: 110px;
+        height: 110px;
+        background: #f1f5f9;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      footer {
+        margin-top: 18px;
+        border-top: 1px dashed #eef2ff;
+        padding-top: 12px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .pill {
+        display: inline-block;
+        background: #eef2ff;
+        color: #0f172a;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: 0.8rem;
+      }
+      @media (print) {
+        body {
+          background: #fff;
+        }
+        .card {
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card" role="article" aria-label="VOIC Certificate">
+      <header>
+        <div class="logo">V</div>
+        <div>
+          <h1>VOIC — Verified Organization Identity Certificate</h1>
+          <div class="meta">
+            Issued by <strong>VishwasPatra</strong> · Non-transferable SBT
+          </div>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="box">
+          <p class="small">Organization</p>
+          <h2>{{orgName}}</h2>
+          <p class="small">Org ID: <span class="pill">{{orgId}}</span></p>
+
+          <p class="small" style="margin-top: 10px">Admin</p>
+          <div>{{adminName}} · {{adminEmail}}</div>
+
+          <p class="small" style="margin-top: 10px">Token</p>
+          <div>
+            Token ID: <strong>{{tokenId}}</strong><br />Issued: {{issuedAt}}
+          </div>
+        </div>
+
+        <div style="min-width: 160px">
+          <div class="qr" aria-hidden="true">QR / Logo</div>
+          <p class="small" style="margin-top: 10px">IPFS Metadata</p>
+          <div style="word-break: break-all; font-size: 0.82rem">
+            {{ipfsUri}}
+          </div>
+          <p class="small" style="margin-top: 8px">Tx</p>
+          <div style="word-break: break-all; font-size: 0.82rem">
+            {{txHash}}
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        This certificate attests that the organization named above has been
+        verified by VishwasPatra. Verify online:
+        <a href="{{verifyUrl}}" target="_blank">{{verifyUrl}}</a>
+      </footer>
+    </div>
+  </body>
+</html>
