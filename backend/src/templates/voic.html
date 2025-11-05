@@ -1,0 +1,130 @@
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 700px;
+      height: 700px;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: radial-gradient(circle at 30% 20%, #0a0f1f 0%, #0b1a3d 60%, #000 100%);
+      border-radius: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      box-sizing: border-box;
+      padding: 40px 30px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      color: white;
+    }
+
+    /* Neural glowing network pattern */
+    body::before {
+      content: "";
+      position: absolute;
+      top: -120px;
+      right: -120px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(0, 136, 255, 0.25), transparent 70%);
+      filter: blur(120px);
+      border-radius: 50%;
+    }
+
+    body::after {
+      content: "";
+      position: absolute;
+      bottom: -100px;
+      left: -100px;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(0, 86, 255, 0.2), transparent 70%);
+      filter: blur(100px);
+      border-radius: 50%;
+    }
+
+    h1 {
+      font-size: 30px;
+      font-weight: 700;
+      color: #8ab4ff;
+      margin: 0;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(0, 86, 255, 0.6);
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #4ea2ff;
+      margin: 10px 0 18px;
+      letter-spacing: 0.6px;
+    }
+
+    p {
+      font-size: 15px;
+      color: #e2e8ff;
+      margin: 8px 0 18px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 10px 18px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      display: inline-block;
+      box-shadow: 0 0 10px rgba(0, 86, 255, 0.15);
+    }
+
+    .qr {
+      background: radial-gradient(circle at 50% 50%, #001a3d, #000);
+      padding: 14px;
+      border-radius: 16px;
+      border: 2px solid rgba(0, 22, 65, 0.8);
+      box-shadow: 0 0 25px rgba(0, 86, 255, 0.35), inset 0 0 15px rgba(255, 255, 255, 0.05);
+    }
+
+    .qr img {
+      width: 240px;
+      height: 240px;
+      border-radius: 12px;
+      display: block;
+    }
+
+    .footer {
+      font-size: 12px;
+      color: #ffffff;
+      text-align: center;
+      line-height: 1.5;
+      background: rgba(0, 20, 60, 0.6);
+      border-radius: 10px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 10px rgba(0, 86, 255, 0.2);
+      margin-top: 18px;
+      padding: 12px 18px;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>VISHWAS PATRA</h1>
+    <h2>VOIC CERTIFIED</h2>
+    <p>Authorized Institution:<br/><b>{{COLLEGE_NAME}}</b></p>
+  </div>
+
+  <div class="qr">
+    <img src="{{QRCODE}}" alt="QR Code" />
+  </div>
+
+  <div class="footer">
+    Powered by TON Blockchain
+  </div>
+</body>
+</html>

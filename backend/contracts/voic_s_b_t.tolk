@@ -1,3 +1,0 @@
-fun onInternalMessage(in: InMessage) {
-
-}

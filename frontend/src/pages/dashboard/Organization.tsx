@@ -1,10 +1,112 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useSession } from "../../App";
 import { LogOut, Users, FileCheck, QrCode, Building2 } from "lucide-react";
+import {
+  TonConnectButton,
+  useTonConnectUI,
+  useTonWallet,
+} from "@tonconnect/ui-react";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { db } from "../../firebaseConfig";
 
 export default function Organization() {
   const { session, logout } = useSession();
   const org = session?.userData || {};
+  const wallet = useTonWallet();
+  const [tonConnectUI] = useTonConnectUI();
+  const [loading, setLoading] = useState(false);
+
+  // 🔹 On wallet connect, link with Firestore
+  useEffect(() => {
+    if (wallet?.account?.address) {
+      handleWalletConnect(wallet.account.address);
+    }
+  }, [wallet]);
+
+  async function handleWalletConnect(walletAddress: string) {
+    try {
+      const collegeId = org.collegeId || "college_001"; // dynamic later
+      const shortName = org.shortName || "SVIT";
+      const collegeRef = doc(db, "colleges", collegeId);
+      const collegeSnap = await getDoc(collegeRef);
+
+      let regId: string;
+
+      // --- 1️⃣ Update college document ---
+      if (collegeSnap.exists()) {
+        const data = collegeSnap.data();
+
+        if (!data.walletId) {
+          const random = Math.floor(1000 + Math.random() * 9000);
+          regId = `VP-GJ-${shortName}-${random}`;
+          await updateDoc(collegeRef, {
+            walletId: walletAddress,
+            regId,
+            updatedAt: new Date().toISOString(),
+          });
+          console.log("✅ College wallet linked:", regId);
+        } else {
+          regId = data.regId;
+          console.log("ℹ️ College already linked:", regId);
+        }
+      } else {
+        console.warn("⚠️ College not found:", collegeId);
+        return;
+      }
+
+      // --- 2️⃣ Add to registrar collection ---
+      const registrarRef = doc(db, "collegeRegistrar", regId);
+      const registrarSnap = await getDoc(registrarRef);
+      if (!registrarSnap.exists()) {
+        await setDoc(registrarRef, {
+          walletId: walletAddress,
+          regId,
+          createdAt: new Date().toISOString(),
+        });
+        console.log("✅ Added to collegeRegistrar:", regId);
+      } else {
+        console.log("ℹ️ Registrar entry already exists:", regId);
+      }
+    } catch (err) {
+      console.error("❌ Wallet connection failed:", err);
+    }
+  }
+
+  const handleMintVOIC = async () => {
+    try {
+      setLoading(true);
+
+      const payload = {
+        collegeName: org.name,
+        regId: org.regId,
+        walletId: org.walletId,
+        mockId: session.mockID,
+      };
+
+      console.log("📤 Sending payload to backend:", payload);
+
+      const res = await fetch("http://localhost:5000/api/generate-sbt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      console.log("✅ Response:", data);
+
+      if (res.ok) {
+        alert("VOIC (SBT) generation request sent successfully!");
+      } else {
+        alert(`Error: ${data.error || "Something went wrong"}`);
+      }
+    } catch (err) {
+      console.error("❌ Error while minting VOIC:", err);
+      alert("Failed to connect to backend");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white text-gray-800">
@@ -16,13 +118,17 @@ export default function Organization() {
             {org.name || "VishwasPatra College"}
           </h1>
         </div>
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
-        >
-          <LogOut size={18} />
-          Logout
-        </button>
+
+        <div className="flex items-center gap-4">
+          <TonConnectButton />
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 transition-colors"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Dashboard Content */}
@@ -67,8 +173,12 @@ export default function Organization() {
               title="Get VOIC (SBT)"
               desc="Obtain Verified Organization Identity Certificate instantly."
               gradient="from-emerald-500 to-teal-500"
-              onClick={() => alert("Minting VOIC...")} // temporary, to be connected with API later
-            />
+              onClick={handleMintVOIC}
+            >
+              {loading && (
+                <p className="text-xs text-gray-400 mt-2">Processing...</p>
+              )}
+            </ActionCard>
             <ActionCard
               title="Generate Certificate"
               desc="Issue blockchain-verified certificates to your students."

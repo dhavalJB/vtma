@@ -11,6 +11,7 @@ import {
 
 import Onboarding from "./pages/Onboarding";
 import Organization from "./pages/dashboard/Organization";
+import { TonConnectUIProvider } from "@tonconnect/ui-react";
 
 // ----------------- Session Types -----------------
 interface SessionData {
@@ -99,9 +100,11 @@ function SessionManager({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <SessionContext.Provider value={{ session, setSession, logout }}>
-      {children}
-    </SessionContext.Provider>
+    <TonConnectUIProvider manifestUrl="https://vishwaspatra.netlify.app/tonconnect-manifest.json">
+      <SessionContext.Provider value={{ session, setSession, logout }}>
+        {children}
+      </SessionContext.Provider>
+    </TonConnectUIProvider>
   );
 }
 

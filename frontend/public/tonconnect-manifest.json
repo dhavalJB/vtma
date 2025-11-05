@@ -1,7 +1,7 @@
 {
-  "url": "",
-  "name": "Clash Warriors",
-  "iconUrl": "",
-  "dappUrl": "",
+  "url": "http://localhost:5173/",
+  "name": "VishwasPatra",
+  "iconUrl": "https://vishwaspatra.netlify.app/logo.png",
+  "dappUrl": "https://vishwaspatra.netlify.app/",
   "manifestUrl": "/tonconnect-manifest.json"
 }

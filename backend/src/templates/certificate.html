@@ -1,0 +1,113 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap");
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 1056px;
+        height: 816px;
+        background: #ffffff;
+      }
+
+      body {
+        font-family: "Poppins", sans-serif;
+        border: 1px solid #0040ff;
+        box-sizing: border-box;
+        padding: 80px 100px;
+        text-align: center;
+        position: relative;
+      }
+
+      h1 {
+        font-size: 50px;
+        color: #002d72;
+        margin: 0;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .sub {
+        font-size: 20px;
+        color: #0055ff;
+        margin-top: 8px;
+        font-weight: 500;
+      }
+
+      .content {
+        margin-top: 80px;
+        font-size: 22px;
+        color: #333;
+        line-height: 1.8;
+      }
+
+      .institution {
+        font-weight: 700;
+        font-size: 32px;
+        color: #002d72;
+        margin: 20px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .highlight {
+        color: #0055ff;
+        font-weight: 600;
+      }
+
+      .footer {
+        position: absolute;
+        bottom: 40px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 16px;
+        color: #666;
+        letter-spacing: 0.3px;
+      }
+
+      /* Decorative top and bottom lines */
+      .top-line,
+      .bottom-line {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60%;
+        height: 4px;
+        background: linear-gradient(90deg, transparent, #0040ff, transparent);
+        border-radius: 2px;
+      }
+
+      .top-line {
+        top: 50px;
+      }
+
+      .bottom-line {
+        bottom: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top-line"></div>
+
+    <h1>VishwasPatra</h1>
+    <div class="sub">Verified Organization Identity Certificate (VOIC)</div>
+
+    <div class="content">
+      This is to certify that<br />
+      <div class="institution">{{INSTITUTION_NAME}}</div>
+      has been officially verified and accredited by the<br />
+      <span class="highlight">Verification Authority</span><br />
+      and is authorized to issue authenticated digital documents<br />
+      on the decentralized verification network.<br /><br />
+      Certification ID: <b>{{REGISTRATION_ID}}</b>
+    </div>
+
+    <div class="bottom-line"></div>
+
+    <div class="footer">© {{YEAR}} VishwasPatra — All Rights Reserved</div>
+  </body>
+</html>

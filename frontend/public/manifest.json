@@ -1,8 +1,8 @@
 {
-  "short_name": "Clash Wars",
-  "name": "Clash Wars",
-  "version" : "2.0",
-  "version_name": "2.0.2",
+  "short_name": "VishwasPatra",
+  "name": "VishwasPatra",
+  "version": "1.0",
+  "version_name": "1.0.1",
   "icons": [
     {
       "src": "icon.png",
