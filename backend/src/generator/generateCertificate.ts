@@ -72,7 +72,7 @@ export async function generateCertificate({
 
   const upload = await uploadBufferToPinata(
     buffer,
-    `${institutionName}_certificate.png`
+    `${registrationId}_certificate.png`
   );
   return { certURL: upload.url, certCID: upload.cid };
 }
@@ -81,9 +81,11 @@ export async function generateCertificate({
 async function generateVOIC({
   college,
   certificateURL,
+  registrationId,
 }: {
   college: string;
   certificateURL: string;
+  registrationId: string;
 }) {
   const qrCode = await QRCode.toDataURL(certificateURL);
   const voicTemplatePath = path.resolve("./src/templates/voic.html");
@@ -105,7 +107,10 @@ async function generateVOIC({
   );
   await browser.close();
 
-  const upload = await uploadBufferToPinata(buffer, `${college}_voic.png`);
+  const upload = await uploadBufferToPinata(
+    buffer,
+    `${registrationId}_voic.png`
+  );
   return { voicURL: upload.url, voicCID: upload.cid, qrCode };
 }
 
@@ -131,6 +136,7 @@ export async function generateVishwasPatra({
   const { voicURL, voicCID } = await generateVOIC({
     college: institutionName,
     certificateURL: certURL,
+    registrationId,
   });
 
   // 2️⃣ Prepare NFT metadata
@@ -151,7 +157,7 @@ export async function generateVishwasPatra({
     properties: {
       certificate: { ipfs: `ipfs://${certCID}`, url: certURL },
       voic: { ipfs: `ipfs://${voicCID}`, url: voicURL },
-      metadata_creator: "VishwasPatra DApp",
+      metadata_creator: "VishwasPatra MiniApp",
       network: "TON Testnet",
     },
   };
@@ -159,7 +165,7 @@ export async function generateVishwasPatra({
   const metadataBuffer = Buffer.from(JSON.stringify(nftMetadata, null, 2));
   const metadataUpload = await uploadBufferToPinata(
     metadataBuffer,
-    `${institutionName}_metadata.json`
+    `${registrationId}_metadata.json`
   );
 
   // 3️⃣ Store to Firestore

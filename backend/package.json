@@ -13,7 +13,10 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@orbs-network/ton-access": "^2.3.3",
     "@pinata/sdk": "^2.1.0",
+    "@ton/core": "^0.62.0",
+    "@ton/crypto": "^3.3.0",
     "axios": "^1.13.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -21,7 +24,8 @@
     "firebase-admin": "^13.5.0",
     "pinata": "^2.5.1",
     "puppeteer": "^24.28.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "ton": "^13.9.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

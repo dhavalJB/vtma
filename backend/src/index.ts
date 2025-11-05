@@ -1,9 +1,7 @@
-// src/index.ts
-import express, { Request, Response } from "express";
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-
-import { db } from "./config/firebaseConfig";
+import { initializeTon } from "./ton/tonClient";
 
 import sbtRoute from "./routes/sbtVoicRoute";
 
@@ -16,9 +14,21 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-app.use("/api", sbtRoute);
+// Initialize TON client first
+(async () => {
+  try {
+    await initializeTon();
+    console.log("✅ TON client initialized");
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`⚡ Server running on port ${PORT}`);
-});
+    // Mount routes AFTER TON is ready
+    app.use("/api", sbtRoute);
+
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`⚡ Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("❌ Failed to initialize TON client:", err);
+    process.exit(1);
+  }
+})();

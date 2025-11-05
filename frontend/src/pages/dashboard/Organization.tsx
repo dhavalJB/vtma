@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Children, useEffect, useState } from "react";
 import { useSession } from "../../App";
 import { LogOut, Users, FileCheck, QrCode, Building2 } from "lucide-react";
 import {
@@ -16,6 +16,9 @@ export default function Organization() {
   const wallet = useTonWallet();
   const [tonConnectUI] = useTonConnectUI();
   const [loading, setLoading] = useState(false);
+  const [nftExists, setNftExists] = useState(false);
+  const [nftMetadata, setNftMetadata] = useState<any>(null); // or a proper type if you know the structure
+  const [hasSBT, setHasSBT] = useState(false);
 
   // 🔹 On wallet connect, link with Firestore
   useEffect(() => {
@@ -23,6 +26,66 @@ export default function Organization() {
       handleWalletConnect(wallet.account.address);
     }
   }, [wallet]);
+
+  useEffect(() => {
+    const mockID = session?.mockID;
+    if (!mockID) return;
+
+    async function checkNFTandThenSBT() {
+      try {
+        const docRef = doc(db, "colleges", mockID!, "nftMetaData", "latest");
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setNftExists(true);
+          setNftMetadata(data);
+
+          // 🕓 Delay 2–3 seconds to ensure org + NFT both loaded
+          setTimeout(() => {
+            console.log("🚀 Triggering SBT verification...");
+            if (org && org.walletId && org.name && org.deployAddress) {
+              verifySBT(org);
+            } else {
+              console.log("⚠️ Org not ready yet for SBT:", org);
+            }
+          }, 3000);
+        } else {
+          console.log("❌ NFT metadata does NOT exist");
+          setNftExists(false);
+          setNftMetadata(null);
+        }
+      } catch (err) {
+        console.error("Error checking NFT metadata:", err);
+      }
+    }
+
+    checkNFTandThenSBT();
+  }, [session?.mockID, org]);
+
+  // ✅ Move SBT verification to separate reusable function
+  async function verifySBT(org: any) {
+    console.log("🔍 Verifying SBT with:", {
+      wallet: org.walletId,
+      college: org.name,
+      deployAddress: org.deployAddress,
+    });
+
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/verify-sbt?wallet=${
+          org.walletId
+        }&college=${encodeURIComponent(org.name)}&deployAddress=${
+          org.deployAddress
+        }`
+      );
+      const data = await res.json();
+      //console.log("✅ SBT verification result:", data);
+      setHasSBT(data.hasSBT);
+    } catch (err) {
+      console.error("❌ Error calling backend:", err);
+    }
+  }
 
   async function handleWalletConnect(walletAddress: string) {
     try {
@@ -73,7 +136,29 @@ export default function Organization() {
     }
   }
 
-  const handleMintVOIC = async () => {
+  const handleVoicGeneration = async () => {
+    const mockID = session?.mockID;
+    if (!mockID || !org?.walletId) {
+      console.log("❌ Missing required data");
+      return;
+    }
+
+    // Double-check from backend (Firestore)
+    try {
+      const docRef = doc(db, "colleges", mockID, "nftMetaData", "latest");
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        console.log("❌ VOIC (SBT) already exists (backend check)");
+        setNftExists(true);
+        return; // block execution
+      }
+    } catch (err) {
+      console.error("❌ Error checking NFT metadata before generation:", err);
+      return;
+    }
+
+    // Proceed with generation
     try {
       setLoading(true);
 
@@ -81,12 +166,12 @@ export default function Organization() {
         collegeName: org.name,
         regId: org.regId,
         walletId: org.walletId,
-        mockId: session.mockID,
+        mockID,
       };
 
       console.log("📤 Sending payload to backend:", payload);
 
-      const res = await fetch("http://localhost:5000/api/generate-sbt", {
+      const res = await fetch("http://localhost:5000/api/generate-voic-sbt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -97,6 +182,7 @@ export default function Organization() {
 
       if (res.ok) {
         alert("VOIC (SBT) generation request sent successfully!");
+        setNftExists(true); // update local state immediately
       } else {
         alert(`Error: ${data.error || "Something went wrong"}`);
       }
@@ -105,6 +191,45 @@ export default function Organization() {
       alert("Failed to connect to backend");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVoicSBTGeneration = async () => {
+    if (!nftMetadata) {
+      console.log("❌ No NFT metadata available");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        metaUri: nftMetadata.metadata,
+        walletId: org.walletId,
+      };
+
+      console.log("📤 Sending payload to backend:", payload);
+
+      const res = await fetch("http://localhost:5000/api/mint-voic-sbt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      console.log("✅ Response:", data);
+
+      if (res.ok) {
+        alert("VOIC (SBT) minted successfully!");
+      } else {
+        alert(`Error: ${data.error || "Something went wrong"}`);
+      }
+    } catch (err) {
+      console.error("❌ Error while minting VOIC:", err);
+      alert("Failed to connect to backend");
+    } finally {
+      setLoading(false);
+      setNftExists(false);
     }
   };
 
@@ -169,31 +294,47 @@ export default function Organization() {
             Quick Actions
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <ActionCard
-              title="Get VOIC (SBT)"
-              desc="Obtain Verified Organization Identity Certificate instantly."
-              gradient="from-emerald-500 to-teal-500"
-              onClick={handleMintVOIC}
-            >
-              {loading && (
-                <p className="text-xs text-gray-400 mt-2">Processing...</p>
-              )}
-            </ActionCard>
-            <ActionCard
-              title="Generate Certificate"
-              desc="Issue blockchain-verified certificates to your students."
-              gradient="from-indigo-600 to-indigo-500"
-            />
-            <ActionCard
-              title="Upload Templates"
-              desc="Design and upload your certificate templates securely."
-              gradient="from-purple-500 to-indigo-500"
-            />
-            <ActionCard
-              title="Manage Students"
-              desc="View, add, or update your student records and IDs."
-              gradient="from-sky-500 to-indigo-600"
-            />
+            {!hasSBT && (
+              <ActionCard
+                title={
+                  nftExists ? "Get VOIC SBT on-chain" : "Get VOIC Certificate"
+                }
+                desc="Obtain Verified Organization Identity Certificate instantly."
+                gradient={
+                  nftExists
+                    ? "from-blue-500 to-indigo-500"
+                    : "from-emerald-500 to-teal-500"
+                }
+                onClick={
+                  nftExists ? handleVoicSBTGeneration : handleVoicGeneration
+                }
+                disabled={loading} // prevent multiple clicks
+              >
+                {loading && (
+                  <p className="text-xs text-gray-400 mt-2">Processing...</p>
+                )}
+              </ActionCard>
+            )}
+
+            {hasSBT && (
+              <>
+                <ActionCard
+                  title="Generate Certificate"
+                  desc="Issue blockchain-verified certificates to your students."
+                  gradient="from-indigo-600 to-indigo-500"
+                />
+                <ActionCard
+                  title="Upload Templates"
+                  desc="Design and upload your certificate templates securely."
+                  gradient="from-purple-500 to-indigo-500"
+                />
+                <ActionCard
+                  title="Manage Students"
+                  desc="View, add, or update your student records and IDs."
+                  gradient="from-sky-500 to-indigo-600"
+                />
+              </>
+            )}
           </div>
         </div>
       </main>
@@ -225,21 +366,31 @@ function ActionCard({
   desc,
   gradient,
   onClick,
+  children,
+  disabled, // ✅ add this
 }: {
   title: string;
   desc: string;
   gradient: string;
   onClick?: () => void;
+  children?: React.ReactNode;
+  disabled?: boolean; // ✅ define type
 }) {
   return (
     <button
       onClick={onClick}
-      className={`group bg-gradient-to-r ${gradient} text-white p-5 rounded-2xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-transform duration-300 text-left`}
+      disabled={disabled}
+      className={`group bg-gradient-to-r ${gradient} text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left
+        ${
+          disabled
+            ? "opacity-60 cursor-not-allowed"
+            : "hover:scale-[1.02] active:scale-[0.98]"
+        }`}
     >
       <h4 className="text-base font-semibold mb-2">{title}</h4>
       <p className="text-xs text-white/80 mb-3">{desc}</p>
       <span className="text-xs font-medium group-hover:underline">
-        Continue →
+        {children}Continue →
       </span>
     </button>
   );
