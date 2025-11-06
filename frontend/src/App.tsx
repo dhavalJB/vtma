@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, createContext, useContext } from "react";
+import { useEffect, useState, createContext, useContext } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -12,6 +12,11 @@ import {
 import Onboarding from "./pages/Onboarding";
 import Organization from "./pages/dashboard/Organization";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
+
+// ----------------- Organization Dashboard Components -----------------
+import StudentsComponent from "./pages/dashboard/orgComponents/studentComponent";
+import GenerateStudentCert from "./pages/dashboard/orgComponents/generateStudentCert";
+import UploadTempComp from "./pages/dashboard/orgComponents/uploadTempComp";
 
 // ----------------- Session Types -----------------
 interface SessionData {
@@ -29,28 +34,13 @@ interface SessionContextType {
   logout: () => void;
 }
 
-// ----------------- Context Setup -----------------
+// ----------------- Context -----------------
 const SessionContext = createContext<SessionContextType>({
   session: null,
   setSession: () => {},
   logout: () => {},
 });
-
 export const useSession = () => useContext(SessionContext);
-
-// ----------------- Protected Route -----------------
-function ProtectedRoute({ children }: { children: React.ReactElement }) {
-  const { session } = useSession();
-  const isValid =
-    session && session.sessionExpiry && Date.now() < session.sessionExpiry;
-
-  if (!isValid) {
-    localStorage.removeItem("session");
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-}
 
 // ----------------- Session Manager -----------------
 function SessionManager({ children }: { children: React.ReactNode }) {
@@ -64,7 +54,6 @@ function SessionManager({ children }: { children: React.ReactNode }) {
       const parsed = JSON.parse(stored);
       if (Date.now() < parsed.sessionExpiry) {
         setSession(parsed);
-        // Auto redirect for existing sessions
         if (location.pathname === "/") {
           if (parsed.role === "organization") navigate("/organization");
           else if (parsed.role === "individual") navigate("/individual");
@@ -74,24 +63,7 @@ function SessionManager({ children }: { children: React.ReactNode }) {
       }
       localStorage.removeItem("session");
     }
-
-    // Auto-generate admin session if route is IssuerGenerator
-    if (location.pathname === "/issuergenerator") {
-      const adminSession: SessionData = {
-        role: "admin",
-        mockID: "admin-001",
-        userData: { name: "Admin", email: "admin@vishwaspatra.gov.in" },
-        sessionStart: Date.now(),
-        sessionExpiry: Date.now() + 1000 * 60 * 60, // 1 hour
-      };
-      setSession(adminSession);
-      localStorage.setItem("session", JSON.stringify(adminSession));
-    }
   }, [navigate, location]);
-
-  useEffect(() => {
-    if (session) localStorage.setItem("session", JSON.stringify(session));
-  }, [session]);
 
   const logout = () => {
     localStorage.removeItem("session");
@@ -103,36 +75,25 @@ function SessionManager({ children }: { children: React.ReactNode }) {
     <TonConnectUIProvider manifestUrl="https://vishwaspatra.netlify.app/tonconnect-manifest.json">
       <SessionContext.Provider value={{ session, setSession, logout }}>
         {children}
-      </SessionContext.Provider>
+      </SessionContext.Provider>{" "}
     </TonConnectUIProvider>
   );
 }
 
-// ----------------- Routes -----------------
+// ----------------- Main App Routes -----------------
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Onboarding />} />
-      <Route
-        path="/organization"
-        element={
-          <ProtectedRoute>
-            <Organization />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/organization" element={<Organization />} />
+      <Route path="/student-registrar" element={<StudentsComponent />} />
+      <Route path="/generate-student-cert" element={<GenerateStudentCert />} />
+      <Route path="/upload-temp-comp" element={<UploadTempComp />} />
       <Route
         path="/individual"
-        element={
-          <ProtectedRoute>
-            <div className="p-6 text-center text-gray-700">
-              <h1 className="text-2xl font-semibold">Individual Dashboard</h1>
-              <p className="mt-2">Coming soon...</p>
-            </div>
-          </ProtectedRoute>
-        }
+        element={<div>Individual Dashboard - Coming Soon</div>}
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />{" "}
     </Routes>
   );
 }
@@ -141,9 +102,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <Router>
+      {" "}
       <SessionManager>
-        <AppRoutes />
-      </SessionManager>
+        {" "}
+        <AppRoutes />{" "}
+      </SessionManager>{" "}
     </Router>
   );
 }

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Professional Degree Certificate</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&family=Great+Vibes&family=Cormorant+Garamond:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #f3f3f3;
+        font-family: "Cormorant Garamond", serif;
+      }
+
+      .certificate {
+        width: 900px;
+        background: #fffdf5;
+        border: 6px solid #d4af37;
+        padding: 60px 80px;
+        box-shadow: 0 0 25px rgba(0, 0, 0, 0.15);
+        position: relative;
+        text-align: center;
+        border-radius: 12px;
+      }
+
+      .college-name {
+        font-family: "UnifrakturCook", serif;
+        font-size: 46px;
+        font-weight: 700;
+        color: #2b2c3c;
+        margin-bottom: 20px;
+        white-space: nowrap; /* Prevent line breaks */
+        overflow: hidden; /* Optional: hide overflow */
+        text-overflow: ellipsis; /* Optional: show ... if too long */
+      }
+
+      .degree-text {
+        font-size: 18px;
+        margin-bottom: 25px;
+        line-height: 1.6;
+        color: #4a4a4a;
+      }
+
+      .student-name {
+        font-family: "Great Vibes", cursive;
+        font-size: 42px;
+        color: #8c5e00;
+        margin: 20px 0;
+      }
+
+      .course-faculty {
+        font-size: 20px;
+        margin-bottom: 20px;
+        color: #4a4a4a;
+      }
+
+      .achievement {
+        font-size: 16px;
+        margin-bottom: 40px;
+        color: #4a4a4a;
+      }
+
+      .logo {
+        width: 100px;
+        height: auto;
+        margin-bottom: 40px;
+      }
+
+      .signatures {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 50px;
+      }
+
+      .signature {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 16px;
+        color: #4a4a4a;
+      }
+
+      .signature-line {
+        border-top: 1px solid #4a4a4a;
+        width: 160px;
+        margin-bottom: 8px;
+      }
+
+      .seal {
+        width: 90px;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="certificate">
+      <div class="college-name">
+        Aryavart Institute of Science and Innovation
+      </div>
+      <div class="degree-text">This certifies that</div>
+      <div class="student-name">{{Student Name}}</div>
+      <div class="course-faculty">
+        of the Faculty of {{Faculty Name}}, having successfully completed all
+        requirements, is hereby awarded the degree of {{Course Name}}.
+      </div>
+      <div class="achievement">
+        Awarded with highest distinction on this {{Day}} day of {{Month}},
+        {{Year}}.
+      </div>
+      <img class="logo" src="{{College Logo URL}}" alt="College Logo" />
+      <div class="signatures">
+        <div class="signature">
+          <div class="signature-line"></div>
+          Chancellor
+        </div>
+        <div class="signature">
+          <div class="signature-line"></div>
+          Dean
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

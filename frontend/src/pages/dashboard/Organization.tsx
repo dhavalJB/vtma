@@ -1,6 +1,7 @@
 "use client";
 import { Children, useEffect, useState } from "react";
 import { useSession } from "../../App";
+import { useNavigate, Link } from "react-router-dom";
 import { LogOut, Users, FileCheck, QrCode, Building2 } from "lucide-react";
 import {
   TonConnectButton,
@@ -11,6 +12,7 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 
 export default function Organization() {
+  const navigate = useNavigate();
   const { session, logout } = useSession();
   const org = session?.userData || {};
   const wallet = useTonWallet();
@@ -206,6 +208,7 @@ export default function Organization() {
       const payload = {
         metaUri: nftMetadata.metadata,
         walletId: org.walletId,
+        mockID: session?.mockID,
       };
 
       console.log("📤 Sending payload to backend:", payload);
@@ -316,25 +319,40 @@ export default function Organization() {
               </ActionCard>
             )}
 
-            {hasSBT && (
-              <>
-                <ActionCard
-                  title="Generate Certificate"
-                  desc="Issue blockchain-verified certificates to your students."
-                  gradient="from-indigo-600 to-indigo-500"
-                />
-                <ActionCard
-                  title="Upload Templates"
-                  desc="Design and upload your certificate templates securely."
-                  gradient="from-purple-500 to-indigo-500"
-                />
-                <ActionCard
-                  title="Manage Students"
-                  desc="View, add, or update your student records and IDs."
-                  gradient="from-sky-500 to-indigo-600"
-                />
-              </>
-            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <button
+                onClick={() =>
+                  navigate("/generate-student-cert", {
+                    state: { mockID: session?.mockID },
+                  })
+                }
+                className="group w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white p-6 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Generate Certificate
+              </button>
+
+              <button
+                onClick={() =>
+                  navigate("/upload-temp-comp", {
+                    state: { mockID: session?.mockID },
+                  })
+                }
+                className="group w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white p-6 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Upload Templates
+              </button>
+
+              <button
+                onClick={() =>
+                  navigate("/student-registrar", {
+                    state: { mockID: session?.mockID },
+                  })
+                }
+                className="group w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white p-6 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Manage Students
+              </button>
+            </div>
           </div>
         </div>
       </main>

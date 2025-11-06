@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { initializeTon } from "./ton/tonClient";
 
 import sbtRoute from "./routes/sbtVoicRoute";
+import templatesRoute from "./routes/templateRoute";
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use(express.json());
 
     // Mount routes AFTER TON is ready
     app.use("/api", sbtRoute);
+    app.use("/template", templatesRoute);
 
     // Start server
     app.listen(PORT, () => {

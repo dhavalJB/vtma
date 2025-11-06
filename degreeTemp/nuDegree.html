@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Degree Certificate</title>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&family=Great+Vibes&display=swap" rel="stylesheet">
+<style>
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'UnifrakturCook', serif;
+  }
+
+.certificate {
+width: 900px;
+padding: 60px 80px;
+background: #fef9f0; /* ivory parchment feel */
+border: 12px solid #d4af37; /* gold border */
+box-shadow: 0 0 50px rgba(0,0,0,0.4);
+position: relative;
+text-align: center;
+overflow: hidden;
+border-radius: 15px;
+}
+
+.certificate::before,
+.certificate::after {
+content: "";
+position: absolute;
+width: 100%;
+height: 20px;
+background: linear-gradient(to right, #d4af37, #fef9f0, #d4af37);
+top: 0; left: 0;
+}
+
+.certificate::after {
+bottom: 0;
+top: auto;
+}
+
+.college-name {
+font-size: 52px;
+font-weight: 700;
+margin-bottom: 20px;
+letter-spacing: 3px;
+color: #b38f00; /* golden text */
+text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+}
+
+.intro-text {
+font-size: 20px;
+margin-bottom: 40px;
+line-height: 1.6;
+color: #3b2f2f;
+}
+
+.student-name {
+font-family: 'Great Vibes', cursive;
+font-size: 50px;
+margin: 20px 0;
+color: #8c5e00;
+text-shadow: 1px 1px 2px #d4af37;
+}
+
+.serial-number {
+font-size: 16px;
+margin-bottom: 30px;
+color: #3b2f2f;
+}
+
+.faculty-course {
+font-size: 22px;
+margin-bottom: 25px;
+color: #3b2f2f;
+}
+
+.achievement {
+font-size: 18px;
+margin-bottom: 50px;
+line-height: 1.6;
+color: #3b2f2f;
+}
+
+.logo {
+width: 120px;
+height: 120px;
+object-fit: contain;
+margin-bottom: 40px;
+}
+
+.flourish {
+font-size: 80px;
+color: #d4af37;
+opacity: 0.1;
+position: absolute;
+top: 20px;
+left: 50%;
+transform: translateX(-50%) rotate(-15deg);
+z-index: 0;
+}
+
+.signatures {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-top: 60px;
+}
+
+.signatures div {
+text-align: center;
+font-size: 16px;
+color: #3b2f2f;
+}
+
+.signatures .center {
+flex-grow: 1;
+}
+
+.signatures img {
+width: 100px;
+height: auto;
+} </style>
+
+</head>
+<body>
+  <div class="certificate">
+    <div class="flourish">✦</div>
+    <div class="college-name">Nirvana University</div>
+    <div class="intro-text">
+      Be it known unto all, by the authority of the Board of Governors and upon the counsel of the Academic Council, that
+    </div>
+    <div class="student-name">{{Student Name}}</div>
+    <div class="serial-number">(Registry No: {{Degree Number}})</div>
+    <div class="faculty-course">
+      of the Faculty of {{Faculty Name}}, having undergone due examination, is hereby found worthy of the degree of {{Course Name}}
+    </div>
+    <div class="achievement">
+      and is adjudged to have attained First Class With Distinction. This honour is conferred upon him/her on this {{Day}} day of {{Month}}, in the year of our Lord {{Year}}.
+    </div>
+    <img class="logo" src="{{CollegeLogoURL}}" alt="College Logo">
+    <div class="signatures">
+      <div>By the Grace of the Board, Director General</div>
+      <div>By the Authority of the Council, Dean</div>
+    </div>
+  </div>
+</body>
+</html>
