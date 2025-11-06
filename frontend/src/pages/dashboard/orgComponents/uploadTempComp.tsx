@@ -17,6 +17,8 @@ import {
   orderBy,
 } from "firebase/firestore";
 
+import { fetchTemplateContentFromFirestore } from "../../../utils/firestoreTemplateUtils";
+
 // --- Chunking Utilities & Constants ---
 // Using 500 KB to be safe under the 1MB Firestore document limit
 const CHUNK_SIZE = 500 * 1024;
@@ -191,66 +193,19 @@ export default function UploadTempComp() {
 
   // --- Function: Retrieve and Reassemble Content ---
   const fetchTemplateContent = async (template: any) => {
-    if (!template.templateId || template.chunkCount === 0) {
-      setMessage(
-        `Error: Template ${template.name} is missing chunk reference data.`
-      );
-      return;
-    }
-
-    setMessage(
-      `Retrieving ${template.chunkCount} chunks for ${template.certificateName} from Firestore...`
-    );
-
     try {
-      // Query Chunks
-      const chunksCollectionRef = collection(
-        db,
-        `${CHUNK_BASE_COLLECTION}/${template.templateId}/data`
-      );
-      // Ordering by 'index' is CRITICAL for reassembly.
-      const q = query(chunksCollectionRef, orderBy("index", "asc"));
-      const snapshot = await getDocs(q);
+      const fullContent = await fetchTemplateContentFromFirestore(template);
 
-      if (snapshot.empty) {
-        setMessage(
-          `Error: No chunks found for template ID ${template.templateId}`
-        );
-        return;
-      }
-
-      const parts: string[] = snapshot.docs.map((doc) => doc.data().content);
-
-      // Stitch the parts back together
-      let fullContent = parts.join("");
-
-      // ✅ Detect & decode Base64 if needed
-      if (fullContent.trim().startsWith("PCFET0")) {
-        try {
-          fullContent = atob(fullContent);
-          console.log("✅ Base64 decoded successfully.");
-        } catch (e) {
-          console.warn(
-            "⚠️ Failed to decode Base64, showing raw content instead."
-          );
-        }
-      }
-
-      // ✅ Use raw decoded HTML and srcDoc for preview
       setModalTemplate({
         ...template,
-        htmlContent: fullContent, // readable HTML
-        url: fullContent, // used with srcDoc, not data URL
+        htmlContent: fullContent,
+        url: fullContent,
       });
-
       setModalView("preview");
-
-      setMessage(
-        `Successfully retrieved content for ${template.certificateName}. Ready to view.`
-      );
+      setMessage(`✅ Retrieved ${template.certificateName}`);
     } catch (err: any) {
-      console.error(`❌ Failed to retrieve and reassemble chunks:`, err);
-      setMessage(`Failed to retrieve content: ${err.message}`);
+      console.error("❌ Error fetching template:", err);
+      setMessage(`Failed: ${err.message}`);
     }
   };
   // --- End Function ---
