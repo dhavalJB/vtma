@@ -1,7 +1,7 @@
 "use client";
-import { Children, useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "../../App";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { LogOut, Users, FileCheck, QrCode, Building2 } from "lucide-react";
 import {
   TonConnectButton,
@@ -236,6 +236,59 @@ export default function Organization() {
     }
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // ✅ Validate file size (max 500 KB)
+    const maxSize = 500 * 1024;
+    if (file.size > maxSize) {
+      alert("Logo size should not exceed 500 KB.");
+      return;
+    }
+
+    // --- Example variables from your app state/context ---
+    const mockID = session?.mockID;
+    const walletId = org.walletId;
+    const regId = org.regId;
+    const fullName = org.name;
+    const shortName = org.shortName;
+
+    // ✅ Prepare form data
+    const formData = new FormData();
+    formData.append("logo", file); // must match multer field name
+    formData.append("mockID", mockID ?? "");
+    formData.append("walletId", walletId);
+    formData.append("regId", regId);
+    formData.append("fullName", fullName);
+    formData.append("shortName", shortName);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/mint-logo-sbt", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      console.log("✅ Uploaded Logo Response:", data);
+
+      if (res.ok) {
+        alert("Logo uploaded successfully!");
+      } else {
+        alert(`Failed: ${data.message || "Server error"}`);
+      }
+    } catch (err) {
+      console.error("❌ Upload failed:", err);
+      alert("Failed to upload logo.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white text-gray-800">
       {/* Header */}
@@ -296,63 +349,85 @@ export default function Organization() {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
             Quick Actions
           </h3>
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             {!hasSBT && (
-              <ActionCard
-                title={
-                  nftExists ? "Get VOIC SBT on-chain" : "Get VOIC Certificate"
-                }
-                desc="Obtain Verified Organization Identity Certificate instantly."
-                gradient={
-                  nftExists
-                    ? "from-blue-500 to-indigo-500"
-                    : "from-emerald-500 to-teal-500"
-                }
+              <button
                 onClick={
                   nftExists ? handleVoicSBTGeneration : handleVoicGeneration
                 }
-                disabled={loading} // prevent multiple clicks
+                disabled={loading}
+                className={`group bg-gradient-to-r ${
+                  nftExists
+                    ? "from-blue-500 to-indigo-500"
+                    : "from-emerald-500 to-teal-500"
+                } text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left ${
+                  loading
+                    ? "opacity-60 cursor-not-allowed"
+                    : "hover:scale-[1.02] active:scale-[0.98]"
+                }`}
               >
+                <h4 className="text-base font-semibold mb-2">
+                  {nftExists ? "Get VOIC SBT on-chain" : "Get VOIC Certificate"}
+                </h4>
+                <p className="text-xs text-white/80 mb-3">
+                  Obtain Verified Organization Identity Certificate instantly.
+                </p>
                 {loading && (
-                  <p className="text-xs text-gray-400 mt-2">Processing...</p>
+                  <p className="text-xs text-gray-300 mt-2">Processing...</p>
                 )}
-              </ActionCard>
+              </button>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <>
               <button
-                onClick={() =>
-                  navigate("/generate-student-cert", {
-                    state: { mockID: session?.mockID },
-                  })
-                }
-                className="group w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white p-6 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+                onClick={handleUploadClick}
+                className="group bg-gradient-to-r from-purple-500 to-indigo-500 text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
               >
-                Generate Certificate
+                <h4 className="text-base font-semibold mb-2">Upload Logo</h4>
+                <p className="text-xs text-white/80 mb-3">
+                  Add or update your institution’s logo for certificates.
+                </p>
               </button>
 
-              <button
-                onClick={() =>
-                  navigate("/upload-temp-comp", {
-                    state: { mockID: session?.mockID },
-                  })
-                }
-                className="group w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white p-6 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
-              >
-                Upload Templates
-              </button>
+              <input
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </>
 
-              <button
-                onClick={() =>
-                  navigate("/student-registrar", {
-                    state: { mockID: session?.mockID },
-                  })
-                }
-                className="group w-full bg-gradient-to-r from-sky-500 to-indigo-600 text-white p-6 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
-              >
-                Manage Students
-              </button>
-            </div>
+            <button
+              onClick={() =>
+                navigate("/upload-temp-comp", {
+                  state: { mockID: session?.mockID },
+                })
+              }
+              className="group bg-gradient-to-r from-purple-500 to-indigo-500 text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <h4 className="text-base font-semibold mb-2">Upload Templates</h4>
+              <p className="text-xs text-white/80 mb-3">
+                Add or update certificate templates with custom fields and
+                branding.
+              </p>
+            </button>
+
+            <button
+              onClick={() =>
+                navigate("/student-registrar", {
+                  state: { mockID: session?.mockID },
+                })
+              }
+              className="group bg-gradient-to-r from-sky-500 to-indigo-600 text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <h4 className="text-base font-semibold mb-2">Manage Students</h4>
+              <p className="text-xs text-white/80 mb-3">
+                Register students, assign certificates, and manage record
+                access.
+              </p>
+            </button>
           </div>
         </div>
       </main>
@@ -376,40 +451,5 @@ function StatCard({
       <h4 className="text-xl font-semibold text-gray-800">{value}</h4>
       <p className="text-sm text-gray-500">{label}</p>
     </div>
-  );
-}
-
-function ActionCard({
-  title,
-  desc,
-  gradient,
-  onClick,
-  children,
-  disabled, // ✅ add this
-}: {
-  title: string;
-  desc: string;
-  gradient: string;
-  onClick?: () => void;
-  children?: React.ReactNode;
-  disabled?: boolean; // ✅ define type
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`group bg-gradient-to-r ${gradient} text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left
-        ${
-          disabled
-            ? "opacity-60 cursor-not-allowed"
-            : "hover:scale-[1.02] active:scale-[0.98]"
-        }`}
-    >
-      <h4 className="text-base font-semibold mb-2">{title}</h4>
-      <p className="text-xs text-white/80 mb-3">{desc}</p>
-      <span className="text-xs font-medium group-hover:underline">
-        {children}Continue →
-      </span>
-    </button>
   );
 }

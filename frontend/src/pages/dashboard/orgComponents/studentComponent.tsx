@@ -4,6 +4,7 @@ import { useSession } from "../../../App";
 import { db } from "../../../firebaseConfig";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { Search, Building2, Download, FileText } from "lucide-react";
+import { fetchTemplateContentFromFirestore } from "../../../utils/firestoreTemplateUtils";
 
 interface Student {
   id: string;
@@ -12,6 +13,10 @@ interface Student {
   program: string;
   status: string;
   year: number;
+  day: number;
+  month: number;
+  faculty: string;
+  courseName: string;
 }
 
 export default function StudentRegistrar() {
@@ -28,6 +33,17 @@ export default function StudentRegistrar() {
   const [yearFilter, setYearFilter] = useState<number | null>(null);
   const [sortField, setSortField] = useState<keyof Student | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [showCertModal, setShowCertModal] = useState(false);
+  const [certType, setCertType] = useState<"degree" | "certificate" | null>(
+    null
+  );
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [previewHTML, setPreviewHTML] = useState<string>("");
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   // Fetch college + students
   useEffect(() => {
@@ -57,6 +73,26 @@ export default function StudentRegistrar() {
 
     fetchData();
   }, [mockID]);
+
+  useEffect(() => {
+    if (!showCertModal || !mockID) return;
+
+    const fetchTemplates = async () => {
+      try {
+        const collegeSnap = await getDoc(doc(db, "colleges", mockID));
+        if (collegeSnap.exists()) {
+          const collegeData = collegeSnap.data();
+          setTemplates(collegeData?.templates || []);
+        } else {
+          setTemplates([]);
+        }
+      } catch (err) {
+        console.error("Error fetching templates:", err);
+      }
+    };
+
+    fetchTemplates();
+  }, [showCertModal, mockID]);
 
   // Apply search, filters, and sorting
   const filteredStudents = useMemo(() => {
@@ -123,6 +159,69 @@ export default function StudentRegistrar() {
     a.download = `${collegeDetails.name || "students"}-list.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleViewCertificates = async (student: Student) => {
+    try {
+      const certRef = collection(
+        db,
+        "colleges",
+        mockID,
+        "students",
+        student.id,
+        "certificate"
+      );
+      const certSnap = await getDocs(certRef);
+
+      if (certSnap.empty) {
+        alert(`No certificate found for ${student.name}`);
+        return;
+      }
+
+      const certList = certSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setCertificates(certList);
+      setSelectedStudent(student);
+      setShowModal(true);
+    } catch (err) {
+      console.error("Error fetching certificates:", err);
+      alert("Failed to fetch certificate details.");
+    }
+  };
+
+  const handleTemplateSelect = async (template: any) => {
+    try {
+      setLoadingPreview(true);
+      const fullHTML = await fetchTemplateContentFromFirestore(template);
+
+      // Replace placeholders with student data
+      const personalizedHTML = fullHTML
+        .replace(/{{Student Name}}/g, selectedStudent?.name || "")
+        .replace(
+          /{{Degree Number}}/g,
+          Math.floor(100000 + Math.random() * 900000).toString()
+        )
+        .replace(
+          /{{Faculty Name}}/g,
+          selectedStudent?.faculty || "Faculty of Science"
+        )
+        .replace(/{{Course Name}}/g, selectedStudent?.courseName || "")
+        .replace(/{{Day}}/g, new Date().getDate().toString())
+        .replace(
+          /{{Month}}/g,
+          new Date().toLocaleString("default", { month: "long" })
+        )
+        .replace(/{{Year}}/g, new Date().getFullYear().toString());
+
+      setPreviewHTML(personalizedHTML);
+    } catch (err) {
+      console.error("Error loading template:", err);
+    } finally {
+      setLoadingPreview(false);
+    }
   };
 
   return (
@@ -277,10 +376,20 @@ export default function StudentRegistrar() {
                     {s.year}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-xs transition">
+                    <button
+                      onClick={() => handleViewCertificates(s)}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-xs transition"
+                    >
                       View
                     </button>
-                    <button className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs transition">
+
+                    <button
+                      onClick={() => {
+                        setSelectedStudent(s);
+                        setShowCertModal(true);
+                      }}
+                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs transition"
+                    >
                       Certificate
                     </button>
                   </td>
@@ -290,6 +399,222 @@ export default function StudentRegistrar() {
           </tbody>
         </table>
       </div>
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-md">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Certificates of {selectedStudent?.name}
+            </h2>
+            <ul className="divide-y divide-gray-200 max-h-60 overflow-y-auto">
+              {certificates.map((c) => (
+                <li
+                  key={c.id}
+                  className="py-2 text-sm text-gray-700 flex justify-between items-center"
+                >
+                  <span>{c.title || c.id}</span>
+                  {c.fileURL && (
+                    <a
+                      href={c.fileURL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:underline text-xs"
+                    >
+                      View File
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+      {showCertModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-2xl overflow-y-auto max-h-[90vh]">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Generate Certificate for {selectedStudent?.name}
+            </h2>
+
+            {/* Step 1: Certificate Type */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Select Type
+              </h3>
+              <div className="flex gap-3">
+                {["degree", "certificate"].map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => {
+                      setCertType(type as any);
+                      setSelectedTemplate(null);
+                      setPreviewHTML("");
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                      certType === type
+                        ? "bg-indigo-600 text-white"
+                        : "bg-gray-100 hover:bg-gray-200"
+                    }`}
+                  >
+                    {type === "degree" ? "Degree" : "Certificate"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Step 2: Template Selection */}
+            {certType && (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  Select Template
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {templates.map((t) => (
+                    <div
+                      key={t.id}
+                      onClick={() => {
+                        setSelectedTemplate(t);
+                        let html = t.htmlTemplate || "";
+                        html = html
+                          .replace(
+                            /{{Student Name}}/g,
+                            selectedStudent?.name || ""
+                          )
+                          .replace(
+                            /{{Degree Number}}/g,
+                            Math.floor(
+                              100000 + Math.random() * 900000
+                            ).toString()
+                          )
+                          .replace(
+                            /{{Faculty Name}}/g,
+                            selectedStudent?.faculty || ""
+                          )
+                          .replace(
+                            /{{Course Name}}/g,
+                            selectedStudent?.courseName || ""
+                          )
+                          .replace(/{{Day}}/g, new Date().getDate().toString())
+                          .replace(
+                            /{{Month}}/g,
+                            new Date().toLocaleString("default", {
+                              month: "long",
+                            })
+                          )
+                          .replace(
+                            /{{Year}}/g,
+                            new Date().getFullYear().toString()
+                          );
+                        setPreviewHTML(html);
+                      }}
+                      className={`border rounded-lg p-3 text-sm cursor-pointer transition ${
+                        selectedTemplate?.id === t.id
+                          ? "border-indigo-600 bg-indigo-50"
+                          : "border-gray-200 hover:border-indigo-400"
+                      }`}
+                    >
+                      <p className="font-semibold">{t.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Preview */}
+            {showCertModal && (
+              <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 relative">
+                  <button
+                    onClick={() => setShowCertModal(false)}
+                    className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ✕
+                  </button>
+
+                  <h2 className="text-xl font-semibold mb-4">
+                    Generate Certificate
+                  </h2>
+
+                  {/* Step 1: Select Type */}
+                  <div className="flex gap-3 mb-4">
+                    {["Degree", "Certificate"].map((type) => (
+                      <button
+                        key={type}
+                        onClick={() => setCertType(type)}
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${
+                          certType === type
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-indigo-50"
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Step 2: Select Template */}
+                  <h3 className="text-gray-700 font-medium mb-2">
+                    Select Template
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 mb-6">
+                    {templates
+                      .filter((t) => t.type === certType)
+                      .map((t) => (
+                        <button
+                          key={t.templateId}
+                          onClick={() => handleTemplateSelect(t)}
+                          className="p-3 border rounded-lg text-left hover:bg-indigo-50 transition text-sm"
+                        >
+                          <p className="font-medium text-gray-800">
+                            {t.certificateName}
+                          </p>
+                          <p className="text-xs text-gray-500">{t.type}</p>
+                        </button>
+                      ))}
+                  </div>
+
+                  {/* Step 3: Preview */}
+                  {loadingPreview ? (
+                    <div className="text-center text-gray-500">
+                      Loading preview...
+                    </div>
+                  ) : previewHTML ? (
+                    <iframe
+                      srcDoc={previewHTML}
+                      title="Certificate Preview"
+                      className="w-full h-[60vh] border rounded-lg"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-400 text-center">
+                      Select a template to see preview
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowCertModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+              {previewHTML && (
+                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                  Generate
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,7 +15,6 @@ import { TonConnectUIProvider } from "@tonconnect/ui-react";
 
 // ----------------- Organization Dashboard Components -----------------
 import StudentsComponent from "./pages/dashboard/orgComponents/studentComponent";
-import GenerateStudentCert from "./pages/dashboard/orgComponents/generateStudentCert";
 import UploadTempComp from "./pages/dashboard/orgComponents/uploadTempComp";
 
 // ----------------- Session Types -----------------
@@ -87,7 +86,6 @@ function AppRoutes() {
       <Route path="/" element={<Onboarding />} />
       <Route path="/organization" element={<Organization />} />
       <Route path="/student-registrar" element={<StudentsComponent />} />
-      <Route path="/generate-student-cert" element={<GenerateStudentCert />} />
       <Route path="/upload-temp-comp" element={<UploadTempComp />} />
       <Route
         path="/individual"
