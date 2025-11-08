@@ -202,6 +202,12 @@ export default function Onboarding() {
             >
               Individual
             </button>
+            <button
+              onClick={() => navigate("/verifier")}
+              className="bg-white border border-indigo-600 text-indigo-600 py-3.5 rounded-2xl shadow-md text-sm font-semibold active:scale-95 transition-all duration-300"
+            >
+              Verifier
+            </button>
           </div>
         )}
       </div>

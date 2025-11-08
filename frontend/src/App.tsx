@@ -12,7 +12,7 @@ import {
 import Onboarding from "./pages/Onboarding";
 import Organization from "./pages/dashboard/Organization";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
-
+import Verifier from "./components/Verifier";
 // ----------------- Organization Dashboard Components -----------------
 import StudentsComponent from "./pages/dashboard/orgComponents/studentComponent";
 import UploadTempComp from "./pages/dashboard/orgComponents/uploadTempComp";
@@ -91,6 +91,7 @@ function AppRoutes() {
         path="/individual"
         element={<div>Individual Dashboard - Coming Soon</div>}
       />
+      <Route path="/verifier" element={<Verifier />} />
       <Route path="*" element={<Navigate to="/" replace />} />{" "}
     </Routes>
   );

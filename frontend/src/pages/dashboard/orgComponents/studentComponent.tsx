@@ -2,9 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useSession } from "../../../App";
 import { db } from "../../../firebaseConfig";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { Search, Building2, Download, FileText } from "lucide-react";
 import { fetchTemplateContentFromFirestore } from "../../../utils/firestoreTemplateUtils";
+import { PDFDocument } from "pdf-lib";
+import crypto from "crypto-js";
 
 interface Student {
   id: string;
@@ -45,6 +47,7 @@ export default function StudentRegistrar() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [previewHTML, setPreviewHTML] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
 
   // Fetch college + students
   useEffect(() => {
@@ -183,18 +186,20 @@ export default function StudentRegistrar() {
         mockID,
         "students",
         student.id,
-        "certificate"
+        "certificates"
       );
       const certSnap = await getDocs(certRef);
 
       if (certSnap.empty) {
-        alert(`No certificate found for ${student.name}`);
+        alert(`No certificates found for ${student.name}`);
         return;
       }
 
-      const certList = certSnap.docs.map((doc) => ({
+      // Map all certificates and rename dynamically
+      const certList = certSnap.docs.map((doc, index) => ({
         id: doc.id,
-        ...doc.data(),
+        title: `Certificate - ${index + 1}`, // auto numbering
+        fileURL: doc.data().pdfUrl || doc.data().fileURL || "", // handle naming consistency
       }));
 
       setCertificates(certList);
@@ -203,6 +208,110 @@ export default function StudentRegistrar() {
     } catch (err) {
       console.error("Error fetching certificates:", err);
       alert("Failed to fetch certificate details.");
+    }
+  };
+
+  const handleDownloadCertificate = async (
+    studentId: string,
+    certId: string
+  ) => {
+    try {
+      // 1️⃣ Fetch certificate document
+      const certDocRef = doc(
+        db,
+        "colleges",
+        mockID,
+        "students",
+        studentId,
+        "certificates",
+        certId
+      );
+      const certSnap = await getDoc(certDocRef);
+      if (!certSnap.exists()) {
+        alert("Certificate data not found!");
+        return;
+      }
+      const certData = certSnap.data();
+
+      // 2️⃣ Prepare fields for hashing (canonical core)
+      const fields = {
+        collegeContractAddress: certData.collegeContractAddress,
+        studentContractAddress: certData.studentContractAddress,
+        collegeId: mockID, // use current college session
+        collegeFullName: certData.collegeDetails?.fullName,
+        collegeShortName: certData.collegeDetails?.shortName,
+        collegeRegId: certData.collegeDetails?.regId,
+        studentId: studentId,
+        templateId: certData.templateId,
+        pdfIpfs: certData.pdfIpfs,
+        metaUri: certData.metaUri,
+        mintedAt: certData.mintedAt,
+      };
+
+      // 3️⃣ Create canonical string and hash
+      const canonical = JSON.stringify(
+        Object.keys(fields)
+          .sort()
+          .reduce((obj, key) => ((obj[key] = fields[key]), obj), {})
+      );
+      const compositeHash = crypto
+        .SHA256("VISHWASPATRA:v1|" + canonical)
+        .toString();
+
+      console.log("🧩 Composite Hash:", compositeHash);
+
+      // 4️⃣ Check and insert into composite registry
+      const registryRef = doc(db, "compositeRegistry", compositeHash);
+      const registrySnap = await getDoc(registryRef);
+
+      if (!registrySnap.exists()) {
+        const registryEntry = {
+          collegeId: mockID,
+          studentId: studentId,
+          certificateId: certId,
+          hash: compositeHash,
+          createdAt: new Date().toISOString(),
+        };
+
+        await setDoc(registryRef, registryEntry);
+        console.log("✅ Added to composite registry:", compositeHash);
+      } else {
+        console.log("ℹ️ Already in registry, skipping insert.");
+      }
+
+      // 5️⃣ Fetch original PDF
+      const pdfBytes = await fetch(certData.pdfUrl).then((res) =>
+        res.arrayBuffer()
+      );
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+
+      // 6️⃣ Embed VishwasPatra metadata
+      pdfDoc.setTitle("Blockchain Verified Certificate");
+      pdfDoc.setAuthor(certData.collegeDetails?.fullName || "VishwasPatra");
+      pdfDoc.setSubject("VishwasPatra Authentic Certificate");
+      pdfDoc.setProducer("VishwasPatra DApp");
+      pdfDoc.setCreator("Meta Realm | TON + IPFS");
+      pdfDoc.setKeywords([
+        JSON.stringify({
+          compositeHash,
+          version: "v1",
+        }),
+      ]);
+
+      // 7️⃣ Save and trigger download
+      const updatedPdfBytes = await pdfDoc.save();
+      const blob = new Blob([updatedPdfBytes], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${
+        certData.collegeDetails?.shortName || "Certificate"
+      }_${studentId}.pdf`;
+      link.click();
+
+      console.log("✅ Certificate downloaded with embedded composite hash.");
+    } catch (err) {
+      console.error("❌ Error during certificate download:", err);
+      alert("Failed to generate secure certificate.");
     }
   };
 
@@ -470,36 +579,81 @@ export default function StudentRegistrar() {
       {/* Certificates Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-md">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[95%] max-w-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Certificates of {selectedStudent?.name}
             </h2>
-            <ul className="divide-y divide-gray-200 max-h-60 overflow-y-auto">
-              {certificates.map((c) => (
-                <li
-                  key={c.id}
-                  className="py-2 text-sm text-gray-700 flex justify-between items-center"
+
+            {/* If a certificate is selected, show PDF */}
+            {selectedCertificate ? (
+              <div className="flex flex-col items-center">
+                <div className="w-full h-[70vh] border rounded-lg overflow-hidden mb-4">
+                  <embed
+                    src={selectedCertificate.fileURL}
+                    type="application/pdf"
+                    width="100%"
+                    height="100%"
+                  />
+                </div>
+                <button
+                  onClick={() => setSelectedCertificate(null)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
                 >
-                  <span>{c.title || c.id}</span>
-                  {c.fileURL && (
-                    <a
-                      href={c.fileURL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-600 hover:underline text-xs"
+                  Back to List
+                </button>
+              </div>
+            ) : (
+              <>
+                <ul className="divide-y divide-gray-200 max-h-60 overflow-y-auto">
+                  {certificates.map((c) => (
+                    <li
+                      key={c.id}
+                      className="py-2 flex justify-between items-center text-sm text-gray-700"
                     >
-                      View File
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-            <button
-              onClick={() => setShowModal(false)}
-              className="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full transition"
-            >
-              Close
-            </button>
+                      <span>{c.title}</span>
+                      <div className="flex gap-3">
+                        {c.fileURL ? (
+                          <>
+                            {/* Inline View Button */}
+                            <button
+                              onClick={() => setSelectedCertificate(c)}
+                              className="text-indigo-600 hover:underline text-xs font-medium"
+                            >
+                              View
+                            </button>
+
+                            {/* Download Button (with metadata injection) */}
+                            <button
+                              onClick={() =>
+                                handleDownloadCertificate(
+                                  selectedStudent.id,
+                                  c.id
+                                )
+                              }
+                              className="text-green-600 hover:underline text-xs font-medium"
+                            >
+                              Download
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-gray-400 text-xs italic">
+                            No file
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* Modal Close Button */}
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full transition"
+                >
+                  Close
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
