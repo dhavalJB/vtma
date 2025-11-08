@@ -17,6 +17,7 @@ interface Student {
   month: number;
   faculty: string;
   courseName: string;
+  walletId: string;
 }
 
 export default function StudentRegistrar() {
@@ -54,7 +55,20 @@ export default function StudentRegistrar() {
       try {
         // College details
         const collegeSnap = await getDoc(doc(db, "colleges", mockID));
-        if (collegeSnap.exists()) setCollegeDetails(collegeSnap.data());
+        if (collegeSnap.exists()) {
+          const data = collegeSnap.data();
+
+          // Ensure logo URL is easy to access
+          const logoURL = data?.logo?.[0]?.normalImage || ""; // fallback if missing
+          const logoContractAddress = data?.logo?.[0]?.contractAddress || "";
+          console.log("College Logo URL:", logoURL); // <--- log here
+
+          setCollegeDetails({
+            ...data,
+            logoURL, // add a direct field for template usage
+            logoContractAddress,
+          });
+        }
 
         // Students
         const studentsCol = collection(db, "colleges", mockID, "students");
@@ -193,34 +207,88 @@ export default function StudentRegistrar() {
   };
 
   const handleTemplateSelect = async (template: any) => {
+    if (!selectedStudent) return; // Ensure student is selected
+
     try {
       setLoadingPreview(true);
+      setSelectedTemplate(template);
+
       const fullHTML = await fetchTemplateContentFromFirestore(template);
 
-      // Replace placeholders with student data
-      const personalizedHTML = fullHTML
-        .replace(/{{Student Name}}/g, selectedStudent?.name || "")
+      // Use let so we can reassign
+      let personalizedHTML = fullHTML
+        .replace(/{{Student Name}}/g, selectedStudent.name)
         .replace(
           /{{Degree Number}}/g,
           Math.floor(100000 + Math.random() * 900000).toString()
         )
         .replace(
           /{{Faculty Name}}/g,
-          selectedStudent?.faculty || "Faculty of Science"
+          selectedStudent.faculty || "Faculty of Science"
         )
-        .replace(/{{Course Name}}/g, selectedStudent?.courseName || "")
+        .replace(/{{Course Name}}/g, selectedStudent.courseName || "")
         .replace(/{{Day}}/g, new Date().getDate().toString())
         .replace(
           /{{Month}}/g,
           new Date().toLocaleString("default", { month: "long" })
         )
-        .replace(/{{Year}}/g, new Date().getFullYear().toString());
+        .replace(/{{Year}}/g, new Date().getFullYear().toString())
+        // College Logo URL
+        .replace(/{{CollegeLogoURL}}/g, collegeDetails.logoURL || "");
+
+      // Make logo clickable
+      const nftLink = `https://testnet.tonviewer.com/${collegeDetails.logoContractAddress}?section=nft`;
+      personalizedHTML = personalizedHTML.replace(
+        /<img class="logo" src="(.*?)"\s*\/?>/,
+        `<a href="${nftLink}" target="_blank"><img class="logo" src="$1" /></a>`
+      );
 
       setPreviewHTML(personalizedHTML);
     } catch (err) {
       console.error("Error loading template:", err);
     } finally {
       setLoadingPreview(false);
+    }
+  };
+
+  const sendCertificate = async () => {
+    if (!selectedStudent || !selectedTemplate || !previewHTML) return;
+
+    const payload = {
+      studentWallet: selectedStudent.walletId,
+      collegeWallet: collegeDetails.walletId,
+      studentId: selectedStudent.id,
+      collegeId: mockID,
+      templateId: selectedTemplate.templateId,
+      collegeDetails: {
+        regId: collegeDetails.regId,
+        fullName: collegeDetails.name,
+        shortName: collegeDetails.shortName,
+      },
+      html: previewHTML,
+    };
+
+    console.log("Payload to send:", payload); // log before sending
+
+    try {
+      // FIX: Corrected URL from "/api/api/student-gen-mint" to "/api/student-gen-mint"
+      const res = await fetch("http://localhost:5000/api/student-gen-mint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }); // The rest of your logic remains the same
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Certificate payload sent successfully!");
+      } else {
+        alert(`Error: ${data.error || "Something went wrong"}`);
+      }
+    } catch (err) {
+      console.error("Error sending payload:", err);
+      alert(
+        "Failed to send certificate payload. Check server logs for details."
+      );
     }
   };
 
@@ -382,7 +450,6 @@ export default function StudentRegistrar() {
                     >
                       View
                     </button>
-
                     <button
                       onClick={() => {
                         setSelectedStudent(s);
@@ -399,6 +466,8 @@ export default function StudentRegistrar() {
           </tbody>
         </table>
       </div>
+
+      {/* Certificates Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-md">
@@ -434,170 +503,85 @@ export default function StudentRegistrar() {
           </div>
         </div>
       )}
+
+      {/* Certificate Generation Modal */}
       {showCertModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-[90%] max-w-2xl overflow-y-auto max-h-[90vh]">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 overflow-y-auto max-h-[90vh] relative">
+            <button
+              onClick={() => setShowCertModal(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
+            >
+              ✕
+            </button>
+            <h2 className="text-xl font-semibold mb-4">
               Generate Certificate for {selectedStudent?.name}
             </h2>
 
-            {/* Step 1: Certificate Type */}
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">
-                Select Type
-              </h3>
-              <div className="flex gap-3">
-                {["degree", "certificate"].map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => {
-                      setCertType(type as any);
-                      setSelectedTemplate(null);
-                      setPreviewHTML("");
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                      certType === type
-                        ? "bg-indigo-600 text-white"
-                        : "bg-gray-100 hover:bg-gray-200"
-                    }`}
-                  >
-                    {type === "degree" ? "Degree" : "Certificate"}
-                  </button>
-                ))}
-              </div>
+            {/* Step 1: Type */}
+            <div className="flex gap-3 mb-4">
+              {["degree", "certificate"].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => {
+                    setCertType(type as "degree" | "certificate");
+                    setSelectedTemplate(null);
+                    setPreviewHTML("");
+                  }}
+                  className={`px-4 py-2 rounded-lg border text-sm font-medium ${
+                    certType === type
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-100 hover:bg-gray-200"
+                  }`}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
             </div>
-
-            {/* Step 2: Template Selection */}
+            {/* Step 2: Template */}
             {certType && (
               <div className="mb-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                <h3 className="text-gray-700 font-medium mb-2">
                   Select Template
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {templates.map((t) => (
-                    <div
-                      key={t.id}
-                      onClick={() => {
-                        setSelectedTemplate(t);
-                        let html = t.htmlTemplate || "";
-                        html = html
-                          .replace(
-                            /{{Student Name}}/g,
-                            selectedStudent?.name || ""
-                          )
-                          .replace(
-                            /{{Degree Number}}/g,
-                            Math.floor(
-                              100000 + Math.random() * 900000
-                            ).toString()
-                          )
-                          .replace(
-                            /{{Faculty Name}}/g,
-                            selectedStudent?.faculty || ""
-                          )
-                          .replace(
-                            /{{Course Name}}/g,
-                            selectedStudent?.courseName || ""
-                          )
-                          .replace(/{{Day}}/g, new Date().getDate().toString())
-                          .replace(
-                            /{{Month}}/g,
-                            new Date().toLocaleString("default", {
-                              month: "long",
-                            })
-                          )
-                          .replace(
-                            /{{Year}}/g,
-                            new Date().getFullYear().toString()
-                          );
-                        setPreviewHTML(html);
-                      }}
-                      className={`border rounded-lg p-3 text-sm cursor-pointer transition ${
-                        selectedTemplate?.id === t.id
-                          ? "border-indigo-600 bg-indigo-50"
-                          : "border-gray-200 hover:border-indigo-400"
-                      }`}
-                    >
-                      <p className="font-semibold">{t.name}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Preview */}
-            {showCertModal && (
-              <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 relative">
-                  <button
-                    onClick={() => setShowCertModal(false)}
-                    className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
-                  >
-                    ✕
-                  </button>
-
-                  <h2 className="text-xl font-semibold mb-4">
-                    Generate Certificate
-                  </h2>
-
-                  {/* Step 1: Select Type */}
-                  <div className="flex gap-3 mb-4">
-                    {["Degree", "Certificate"].map((type) => (
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  {templates
+                    .filter((t) => t.type.toLowerCase() === certType)
+                    .map((t) => (
                       <button
-                        key={type}
-                        onClick={() => setCertType(type)}
-                        className={`px-4 py-2 rounded-lg border text-sm font-medium ${
-                          certType === type
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-100 text-gray-700 hover:bg-indigo-50"
+                        key={t.templateId}
+                        onClick={() => handleTemplateSelect(t)}
+                        className={`p-3 border rounded-lg text-left hover:bg-indigo-50 transition text-sm ${
+                          selectedTemplate?.templateId === t.templateId
+                            ? "border-indigo-600 bg-indigo-50"
+                            : "border-gray-200"
                         }`}
                       >
-                        {type}
+                        <p className="font-medium text-gray-800">
+                          {t.certificateName || t.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{t.type}</p>
                       </button>
                     ))}
-                  </div>
-
-                  {/* Step 2: Select Template */}
-                  <h3 className="text-gray-700 font-medium mb-2">
-                    Select Template
-                  </h3>
-                  <div className="grid grid-cols-2 gap-3 mb-6">
-                    {templates
-                      .filter((t) => t.type === certType)
-                      .map((t) => (
-                        <button
-                          key={t.templateId}
-                          onClick={() => handleTemplateSelect(t)}
-                          className="p-3 border rounded-lg text-left hover:bg-indigo-50 transition text-sm"
-                        >
-                          <p className="font-medium text-gray-800">
-                            {t.certificateName}
-                          </p>
-                          <p className="text-xs text-gray-500">{t.type}</p>
-                        </button>
-                      ))}
-                  </div>
-
-                  {/* Step 3: Preview */}
-                  {loadingPreview ? (
-                    <div className="text-center text-gray-500">
-                      Loading preview...
-                    </div>
-                  ) : previewHTML ? (
-                    <iframe
-                      srcDoc={previewHTML}
-                      title="Certificate Preview"
-                      className="w-full h-[60vh] border rounded-lg"
-                    />
-                  ) : (
-                    <p className="text-sm text-gray-400 text-center">
-                      Select a template to see preview
-                    </p>
-                  )}
                 </div>
               </div>
             )}
-
+            {/* Step 3: Preview */}
+            {loadingPreview ? (
+              <div className="text-center text-gray-500">
+                Loading preview...
+              </div>
+            ) : previewHTML ? (
+              <iframe
+                srcDoc={previewHTML}
+                title="Certificate Preview"
+                className="w-full h-[60vh] border rounded-lg"
+              />
+            ) : (
+              <p className="text-sm text-gray-400 text-center">
+                Select a template to see preview
+              </p>
+            )}
             {/* Actions */}
             <div className="flex justify-end gap-3 mt-4">
               <button
@@ -607,8 +591,11 @@ export default function StudentRegistrar() {
                 Cancel
               </button>
               {previewHTML && (
-                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                  Generate
+                <button
+                  onClick={sendCertificate}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                >
+                  Generate & Send
                 </button>
               )}
             </div>

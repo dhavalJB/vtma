@@ -6,6 +6,7 @@ import { initializeTon } from "./ton/tonClient";
 import sbtRoute from "./routes/sbtVoicRoute";
 import templatesRoute from "./routes/templateRoute";
 import logoUploadRoute from "./routes/mintLogoRoute";
+import studentsRoute from "./routes/studentsRoute";
 
 dotenv.config();
 
@@ -16,18 +17,19 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// --- Initialize TON client first ---
+// --- Mount routes (Standard Express Practice) ---
+// Routes are mounted synchronously before any async logic or server start.
+app.use("/api", sbtRoute);
+app.use("/template", templatesRoute);
+app.use("/api", logoUploadRoute);
+app.use("/api", studentsRoute);
+
+// --- Initialize TON client first, then start server ---
 (async () => {
   try {
     await initializeTon();
-    console.log("✅ TON client initialized");
+    console.log("✅ TON client initialized"); // --- Start server AFTER TON is ready ---
 
-    // --- Mount routes AFTER TON is ready ---
-    app.use("/api", sbtRoute);
-    app.use("/template", templatesRoute);
-    app.use("/api", logoUploadRoute);
-
-    // --- Start server ---
     app.listen(PORT, () => {
       console.log(`⚡ Server running on port ${PORT}`);
     });
