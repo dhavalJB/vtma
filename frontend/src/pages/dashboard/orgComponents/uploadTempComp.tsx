@@ -93,24 +93,33 @@ export default function UploadTempComp() {
     const uploadedFile = e.target.files[0];
     setFile(uploadedFile);
 
-    // Use FileReader to read the file contents as a string
     const reader = new FileReader();
+
     reader.onload = (event) => {
-      setRawFileContent(event.target.result as string);
-      setMessage(
-        `File loaded: ${uploadedFile.name}. Size: ${(
-          uploadedFile.size /
-          1024 /
-          1024
-        ).toFixed(2)} MB`
-      );
+      const result = event.target?.result;
+      if (typeof result === "string") {
+        setRawFileContent(result);
+        setMessage(
+          `File loaded: ${uploadedFile.name}. Size: ${(
+            uploadedFile.size /
+            1024 /
+            1024
+          ).toFixed(2)} MB`
+        );
+      } else {
+        console.warn("⚠️ File content was not a string.");
+        setMessage("Unexpected file format.");
+        setRawFileContent(null);
+      }
     };
+
     reader.onerror = () => {
-      console.error("Error reading file.");
+      console.error("❌ Error reading file.");
       setMessage("Error reading file.");
       setRawFileContent(null);
     };
-    // We read as text since HTML files are predominantly text
+
+    // Read HTML/text content
     reader.readAsText(uploadedFile);
   };
 

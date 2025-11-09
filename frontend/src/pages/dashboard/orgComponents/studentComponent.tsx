@@ -48,7 +48,11 @@ export default function StudentRegistrar() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [previewHTML, setPreviewHTML] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState<{
+    id: string;
+    fileURL: string;
+    title: string;
+  } | null>(null);
 
   // Fetch college + students
   useEffect(() => {
@@ -253,8 +257,12 @@ export default function StudentRegistrar() {
       const canonical = JSON.stringify(
         Object.keys(fields)
           .sort()
-          .reduce((obj, key) => ((obj[key] = fields[key]), obj), {})
+          .reduce((obj: Record<string, any>, key) => {
+            obj[key] = (fields as Record<string, any>)[key];
+            return obj;
+          }, {})
       );
+
       const compositeHash = crypto
         .SHA256("VISHWASPATRA:v1|" + canonical)
         .toString();
@@ -332,7 +340,10 @@ export default function StudentRegistrar() {
 
       // 9️⃣ Save & download updated PDF
       const updatedPdfBytes = await pdfDoc.save();
-      const blob = new Blob([updatedPdfBytes], { type: "application/pdf" });
+      const blob = new Blob([new Uint8Array(updatedPdfBytes)], {
+        type: "application/pdf",
+      });
+
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `${
@@ -657,6 +668,7 @@ export default function StudentRegistrar() {
                             {/* Download Button (with metadata injection) */}
                             <button
                               onClick={() =>
+                                selectedStudent &&
                                 handleDownloadCertificate(
                                   selectedStudent.id,
                                   c.id
