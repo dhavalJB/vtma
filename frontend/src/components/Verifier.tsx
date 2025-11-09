@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 export default function Verifier() {
   const [file, setFile] = useState<File | null>(null);
@@ -107,35 +107,110 @@ export default function Verifier() {
     }
   };
 
+  const handleSecureDownload = async () => {
+    try {
+      if (!result?.pdfUrl) {
+        alert("No verified PDF found to download.");
+        return;
+      }
+
+      console.log("🔒 [Verifier] Secure downloading verified PDF...");
+
+      // 1️⃣ Fetch the original verified PDF
+      const pdfBytes = await fetch(result.pdfUrl).then((res) =>
+        res.arrayBuffer()
+      );
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+
+      // 2️⃣ Embed VishwasPatra verification metadata
+      const compositeHash = result.compositeHash || "unknown";
+      pdfDoc.setTitle("VishwasPatra Verified Certificate");
+      pdfDoc.setAuthor(result.collegeName || "VishwasPatra");
+      pdfDoc.setSubject("Blockchain Authenticated Certificate");
+      pdfDoc.setProducer("VishwasPatra DApp");
+      pdfDoc.setCreator("Meta Realm | TON + IPFS");
+      pdfDoc.setKeywords([
+        JSON.stringify({
+          compositeHash,
+          verifiedBy: "VishwasPatra",
+          version: "v1",
+        }),
+      ]);
+
+      // 3️⃣ Add verification QR (for easy re-verification)
+      const verifyUrl = `http://localhost:5173/verifier?verify-hash=${compositeHash}`;
+      const qrDataUrl = await import("qrcode").then((q) =>
+        q.default.toDataURL(verifyUrl, { margin: 1, width: 100 })
+      );
+      const qrImage = await pdfDoc.embedPng(qrDataUrl);
+
+      const pages = pdfDoc.getPages();
+      const lastPage = pages[pages.length - 1];
+      const { width } = lastPage.getSize();
+      const qrSize = 90;
+      const margin = 40;
+
+      lastPage.drawImage(qrImage, {
+        x: width - qrSize - margin,
+        y: margin,
+        width: qrSize,
+        height: qrSize,
+      });
+
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      lastPage.drawText("Verify at VishwasPatra", {
+        x: width - qrSize - margin - 10,
+        y: margin - 10,
+        size: 10,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      });
+
+      // 4️⃣ Save and trigger secure download
+      const updatedBytes = await pdfDoc.save();
+      const blob = new Blob([new Uint8Array(updatedBytes)], {
+        type: "application/pdf",
+      });
+
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${result.collegeRegId || "Verified"}_Certificate.pdf`;
+      link.click();
+
+      console.log("✅ [Verifier] Secure verified PDF downloaded.");
+    } catch (err) {
+      console.error("❌ [Verifier] Secure download failed:", err);
+      alert("Failed to securely download the verified certificate.");
+    }
+  };
+
   // ✅ UI Rendering
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-50 via-white to-blue-50">
       {/* Header */}
-      <header className="w-full bg-white shadow-md py-4 px-6 flex justify-between items-center">
-        <h1 className="text-lg md:text-2xl font-bold text-indigo-700">
-          VishwasPatra
-        </h1>
-        <span className="text-xs md:text-sm text-gray-500 font-medium">
-          Secure Document Verification
+      <header className="w-full bg-white shadow-sm py-3 px-4 flex justify-between items-center border-b border-indigo-100">
+        <h1 className="text-lg font-bold text-indigo-700">VishwasPatra</h1>
+        <span className="text-[11px] text-gray-500 font-medium">
+          Secure Verification
         </span>
       </header>
 
       {/* Main Section */}
-      <main className="flex-1 flex flex-col justify-center items-center text-center px-4">
-        <div className="bg-white shadow-2xl rounded-3xl p-8 w-full max-w-md border border-gray-200">
+      <main className="flex-1 flex flex-col justify-start items-center text-center px-3 py-5">
+        <div className="bg-white shadow-md rounded-2xl p-5 w-full border border-gray-100">
           {!result ? (
             <>
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">
+              <h2 className="text-base font-semibold text-gray-800 mb-1">
                 Verify Your Certificate
               </h2>
-              <p className="text-sm text-gray-500 mb-6">
-                Upload or open via verification link to check authenticity.
+              <p className="text-xs text-gray-500 mb-5">
+                Upload a PDF or open via link to check authenticity.
               </p>
 
               {/* Upload Field */}
               <label
                 htmlFor="pdf-upload"
-                className="block cursor-pointer border-2 border-dashed border-indigo-400 rounded-2xl py-10 flex flex-col items-center justify-center text-gray-500 hover:bg-indigo-50 transition duration-300 ease-in-out"
+                className="block cursor-pointer border-2 border-dashed border-indigo-400 rounded-xl py-8 flex flex-col items-center justify-center text-gray-500 hover:bg-indigo-50 transition"
               >
                 <input
                   id="pdf-upload"
@@ -145,13 +220,13 @@ export default function Verifier() {
                   className="hidden"
                 />
                 <div className="flex flex-col items-center space-y-2">
-                  <div className="text-4xl">📄</div>
+                  <div className="text-3xl">📄</div>
                   {fileName ? (
-                    <span className="font-medium text-indigo-700 break-all text-sm">
+                    <span className="font-medium text-indigo-700 text-xs break-all">
                       {fileName}
                     </span>
                   ) : (
-                    <span className="text-sm md:text-base font-medium">
+                    <span className="text-sm font-medium">
                       Tap to Upload PDF
                     </span>
                   )}
@@ -160,17 +235,21 @@ export default function Verifier() {
 
               {/* Instant PDF Preview */}
               {file && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">
+                <div className="mt-4">
+                  <h3 className="text-xs font-medium text-gray-700 mb-1 text-left">
                     Preview:
                   </h3>
-                  <div className="w-full h-[400px] border rounded-xl overflow-hidden shadow-sm">
-                    <iframe
+                  <div className="w-full h-[320px] border rounded-xl overflow-hidden shadow-sm bg-gray-50">
+                    <embed
                       src={URL.createObjectURL(file)}
-                      className="w-full h-full"
-                      title="Certificate Preview"
-                    ></iframe>
+                      type="application/pdf"
+                      className="w-full h-full rounded-lg"
+                    />
                   </div>
+                  <p className="text-[11px] text-gray-400 mt-1 text-center">
+                    This is a temporary preview — verification will start once
+                    you press <b>“Verify Now”</b>.
+                  </p>
                 </div>
               )}
 
@@ -179,7 +258,7 @@ export default function Verifier() {
                 <button
                   onClick={handleVerify}
                   disabled={verifying}
-                  className={`mt-6 w-full py-3 rounded-xl font-semibold transition ${
+                  className={`mt-4 w-full py-2.5 rounded-xl font-semibold text-sm transition ${
                     verifying
                       ? "bg-gray-400 text-white cursor-not-allowed"
                       : "bg-indigo-600 hover:bg-indigo-700 text-white"
@@ -191,30 +270,30 @@ export default function Verifier() {
             </>
           ) : (
             // ✅ Verified Certificate Card
-            <div className="text-left space-y-4">
+            <div className="text-left space-y-3">
               {/* College Branding */}
               <div className="flex flex-col items-center">
                 {result.logoImage && (
                   <img
                     src={result.logoImage}
                     alt={result.collegeName}
-                    className="w-24 h-24 rounded-full mb-4 border-2 border-indigo-200 shadow-md"
+                    className="w-20 h-20 rounded-full mb-3 border border-indigo-200 shadow-sm"
                   />
                 )}
                 <h2
-                  className={`text-2xl font-bold ${
+                  className={`text-lg font-bold ${
                     result.verified ? "text-green-600" : "text-red-600"
                   }`}
                 >
                   {result.status}
                 </h2>
-                <p className="text-gray-600 text-sm text-center">
+                <p className="text-xs text-gray-600 text-center">
                   {result.message}
                 </p>
               </div>
 
               {/* Certificate Details */}
-              <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
+              <div className="border-t border-gray-200 pt-3 space-y-1 text-xs text-gray-700">
                 <p>
                   <strong>Institution:</strong> {result.collegeName} (
                   {result.collegeRegId})
@@ -226,46 +305,39 @@ export default function Verifier() {
                   <strong>Student ID:</strong> {result.studentId}
                 </p>
                 <p>
-                  <strong>Issued On:</strong>{" "}
+                  <strong>Issued:</strong>{" "}
                   {new Date(result.issuedAt).toLocaleDateString()}
                 </p>
               </div>
 
-              {/* Blockchain Address */}
-              {result.studentContractAddress && (
-                <div className="mt-3">
-                  <p className="text-sm text-gray-700">
-                    <strong>On-Chain Contract:</strong>{" "}
-                    <a
-                      href={`https://testnet.tonviewer.com/${result.studentContractAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium"
-                    >
-                      🔗 View on TON Chain
-                    </a>
-                  </p>
-                </div>
-              )}
-
-              {/* Visible Embedded PDF */}
+              {/* Certificate Preview */}
               {result.pdfUrl && (
-                <div className="mt-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">
+                <div className="mt-3 relative">
+                  <h3 className="text-xs font-medium text-gray-700 mb-1">
                     Certificate Preview:
                   </h3>
-                  <div className="w-full h-[400px] border rounded-xl overflow-hidden shadow-sm">
+                  <div className="relative w-full h-[320px] border rounded-xl overflow-hidden shadow-inner">
                     <iframe
                       src={`${result.pdfUrl}#view=FitH`}
-                      className="w-full h-full"
+                      className="w-full h-full rounded-lg"
                       title="Verified Certificate"
                     ></iframe>
+
+                    {/* 🛡️ Secure Download Overlay */}
+                    <button
+                      onClick={handleSecureDownload}
+                      className="absolute top-2 right-2 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] px-3 py-1.5 rounded-lg shadow-md"
+                    >
+                      ⬇️ Secure Download
+                    </button>
                   </div>
+
+                  {/* Open Full PDF */}
                   <a
                     href={result.pdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 block text-center bg-green-600 hover:bg-green-700 text-white rounded-xl py-2 transition"
+                    className="mt-3 block text-center text-xs bg-green-600 hover:bg-green-700 text-white rounded-xl py-2 transition"
                   >
                     Open Full PDF
                   </a>
@@ -279,7 +351,7 @@ export default function Verifier() {
                   setFile(null);
                   setFileName("");
                 }}
-                className="mt-3 w-full py-2 rounded-xl text-sm font-medium border border-gray-300 hover:bg-gray-100 transition"
+                className="mt-3 w-full py-2 text-xs font-medium border border-gray-300 rounded-xl hover:bg-gray-100 text-gray-700"
               >
                 Verify Another
               </button>
@@ -289,11 +361,11 @@ export default function Verifier() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-4 text-center text-xs text-gray-500 border-t bg-white">
+      <footer className="w-full py-3 text-center text-[11px] text-gray-500 border-t bg-white">
         <p>
           Powered by{" "}
           <span className="font-semibold text-indigo-600">VishwasPatra</span> |
-          Built on TON Network
+          TON Network
         </p>
       </footer>
     </div>

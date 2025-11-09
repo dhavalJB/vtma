@@ -69,15 +69,49 @@ export default function UploadTempComp() {
 
     const fetchData = async () => {
       try {
-        const collegeSnap = await getDoc(doc(db, COLLEGES_COLLECTION, mockID));
+        const collegeRef = doc(db, COLLEGES_COLLECTION, mockID);
+        const collegeSnap = await getDoc(collegeRef);
+
         if (collegeSnap.exists()) {
           const data = collegeSnap.data();
-          setCollegeDetails(data);
-          // ⚠️ FIX: Assuming templates are now stored as an Array (using arrayUnion)
+
+          // 🧩 Extract correct logo entry (handles both string + object)
+          let logoURL = "";
+          let logoContractAddress = "";
+
+          if (Array.isArray(data.logo)) {
+            const logoObj = data.logo.find(
+              (item: any) => typeof item === "object" && item.normalImage
+            );
+
+            if (logoObj) {
+              logoURL =
+                logoObj.normalImage || logoObj.normalUrl || logoObj.image || "";
+              logoContractAddress = logoObj.contractAddress || "";
+            } else if (typeof data.logo[0] === "string") {
+              logoURL = data.logo[0];
+            }
+          } else if (typeof data.logo === "string") {
+            logoURL = data.logo;
+          }
+
+          console.log("🏫 Logo URL:", logoURL);
+          console.log("🏦 Logo Contract Address:", logoContractAddress);
+
+          // 🧾 Merge logo info into details
+          setCollegeDetails({
+            ...data,
+            logoURL,
+            logoContractAddress,
+          });
+
+          // ⚙️ Handle templates (arrayUnion support)
           setTemplates(data?.templates || []);
+        } else {
+          console.warn(`⚠️ College not found for mockID: ${mockID}`);
         }
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error("❌ Error fetching data:", err);
         setMessage("Error fetching data. Check console.");
       } finally {
         setLoading(false);
@@ -203,143 +237,196 @@ export default function UploadTempComp() {
   // --- Function: Retrieve and Reassemble Content ---
   const fetchTemplateContent = async (template: any) => {
     try {
-      const fullContent = await fetchTemplateContentFromFirestore(template);
+      // 🧩 Step 1: Fetch the college details first
+      const collegeRef = doc(db, "colleges", mockID);
+      const collegeSnap = await getDoc(collegeRef);
 
+      if (!collegeSnap.exists()) {
+        console.warn("⚠️ College not found for mockID:", mockID);
+        setMessage("College data missing.");
+        return;
+      }
+
+      const collegeData = collegeSnap.data();
+
+      // 🧩 Step 2: Extract correct logo URL + contract address
+      let logoURL = "";
+      let logoContractAddress = "";
+
+      if (Array.isArray(collegeData.logo)) {
+        const logoObj = collegeData.logo.find(
+          (item: any) => typeof item === "object" && item.normalImage
+        );
+
+        if (logoObj) {
+          logoURL =
+            logoObj.normalImage || logoObj.normalUrl || logoObj.image || "";
+          logoContractAddress = logoObj.contractAddress || "";
+        } else if (typeof collegeData.logo[0] === "string") {
+          logoURL = collegeData.logo[0];
+        }
+      } else if (typeof collegeData.logo === "string") {
+        logoURL = collegeData.logo;
+      }
+
+      console.log("🏫 College Logo URL:", logoURL);
+      console.log("🔗 Logo Contract Address:", logoContractAddress);
+
+      // 🧩 Step 3: Fetch the HTML template content
+      let fullContent = await fetchTemplateContentFromFirestore(template);
+
+      // 🧩 Step 4: Replace only {{CollegeLogoURL}}
+      if (logoURL) {
+        fullContent = fullContent.replace(/{{CollegeLogoURL}}/g, logoURL);
+      }
+
+      // 🧩 Step 5: Make logo clickable to TON NFT page
+      if (logoContractAddress) {
+        const nftLink = `https://testnet.tonviewer.com/${logoContractAddress}?section=nft`;
+        fullContent = fullContent.replace(
+          /<img\s+class="logo"\s+src="(.*?)"\s*\/?>/,
+          `<a href="${nftLink}" target="_blank"><img class="logo" src="$1" /></a>`
+        );
+      }
+
+      // 🧩 Step 6: Set the preview modal content
       setModalTemplate({
         ...template,
         htmlContent: fullContent,
         url: fullContent,
       });
+
       setModalView("preview");
       setMessage(`✅ Retrieved ${template.certificateName}`);
     } catch (err: any) {
       console.error("❌ Error fetching template:", err);
-      setMessage(`Failed: ${err.message}`);
+      setMessage(`Failed: ${err.message || "Unknown error"}`);
     }
   };
+
   // --- End Function ---
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 md:p-10 font-sans">
-      {" "}
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}{" "}
-        <header className="mb-10 text-center">
-          {" "}
-          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">
-            Certificate Templates ({collegeDetails?.shortName || mockID}){" "}
-          </h1>{" "}
-          <span className="text-xs font-mono text-gray-400">
-            Mock ID: {mockID}
-          </span>{" "}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 font-sans">
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        {/* Header */}
+        <header className="text-center mb-10">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-indigo-700 drop-shadow-sm">
+            Certificate Templates
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Manage and preview certificate templates for{" "}
+            <span className="font-semibold text-indigo-600">
+              {collegeDetails?.shortName || mockID}
+            </span>
+          </p>
+          <p className="text-xs font-mono text-gray-400 mt-1">
+            College ID: {mockID}
+          </p>
         </header>
+
         {/* Message Bar */}
         {message && (
-          <div
-            className="bg-indigo-100 border border-indigo-400 text-indigo-700 px-4 py-3 rounded-xl relative mb-6 text-sm"
-            role="alert"
-          >
-            <span className="block sm:inline">{message}</span>
+          <div className="bg-indigo-100 border border-indigo-400 text-indigo-700 px-4 py-3 rounded-xl mb-6 text-sm text-center shadow-sm animate-fade-in">
+            {message}
           </div>
         )}
-        {/* Upload Button */}{" "}
-        <div className="mb-8 flex justify-center">
-          {" "}
+
+        {/* Upload Button */}
+        <div className="flex justify-center mb-10">
           <button
             onClick={() => setShowUploadModal(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl px-6 py-3 shadow-md hover:shadow-lg transition"
+            className="bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 
+          text-white font-semibold rounded-xl px-8 py-3 shadow-md hover:shadow-xl 
+          transition-all duration-300 transform hover:scale-105"
           >
-            Upload New Template (Chunked){" "}
-          </button>{" "}
+            ⬆️ Upload New Template
+          </button>
         </div>
-        {/* Template Grid */}{" "}
-        <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {" "}
+
+        {/* Template Grid */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {loading ? (
-            <p className="text-center col-span-full text-gray-500">
-              Loading templates...{" "}
+            <p className="text-center col-span-full text-gray-500 animate-pulse">
+              Loading templates...
             </p>
           ) : templates.length === 0 ? (
             <p className="text-center col-span-full text-gray-500">
-              No templates yet. Upload one!{" "}
+              No templates yet. Upload one!
             </p>
           ) : (
             templates.map((t) => (
               <div
                 key={t.templateId}
-                className="bg-white rounded-2xl shadow-md p-5 flex flex-col justify-between hover:shadow-xl transition"
+                className="bg-white/80 backdrop-blur-md border border-indigo-100 rounded-2xl p-6 shadow-sm 
+              hover:shadow-lg transition-all duration-300 flex flex-col justify-between group"
               >
-                {" "}
-                <div className="flex flex-col gap-1">
-                  {" "}
-                  <h2 className="font-semibold text-lg text-gray-900 truncate">
-                    {t.certificateName}{" "}
-                  </h2>{" "}
-                  <span className="text-sm text-gray-500">Type: {t.type}</span>
-                  <span className="text-xs text-gray-400">
+                <div>
+                  <h2 className="font-semibold text-lg text-gray-900 mb-1 group-hover:text-indigo-700 transition">
+                    {t.certificateName}
+                  </h2>
+                  <p className="text-sm text-gray-500">Type: {t.type}</p>
+                  <p className="text-xs text-gray-400">
                     Chunks: {t.chunkCount}
-                  </span>{" "}
-                </div>{" "}
-                <div className="mt-4 flex justify-between items-center">
-                  {" "}
-                  <button
-                    // Triggers content fetch and opens the modal
-                    onClick={() => fetchTemplateContent(t)}
-                    className="text-indigo-600 font-medium hover:underline"
-                  >
-                    View Certificate{" "}
-                  </button>{" "}
-                </div>{" "}
+                  </p>
+                </div>
+                <button
+                  onClick={() => fetchTemplateContent(t)}
+                  className="mt-5 text-indigo-600 font-medium hover:underline transition"
+                >
+                  View Certificate →
+                </button>
               </div>
             ))
-          )}{" "}
+          )}
         </section>
-        {/* Upload Modal (unchanged) */}{" "}
+
+        {/* Upload Modal */}
         {showUploadModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            {" "}
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative">
-              {" "}
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative animate-fade-in-up">
               <button
                 onClick={() => setShowUploadModal(false)}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
+                className="absolute top-3 right-3 text-gray-500 hover:text-indigo-600 text-xl"
               >
-                ✕{" "}
-              </button>{" "}
-              <h2 className="text-xl font-semibold mb-4">Upload Template</h2>{" "}
+                ✕
+              </button>
+
+              <h2 className="text-2xl font-bold mb-5 text-indigo-700 text-center">
+                Upload New Template
+              </h2>
+
               <input
                 type="text"
                 placeholder="Certificate Name"
                 value={certificateName}
                 onChange={(e) => setCertificateName(e.target.value)}
                 className="border border-gray-300 rounded-lg p-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />{" "}
+              />
+
               <h3 className="text-gray-700 font-medium mb-2">
-                Certificate Type{" "}
-              </h3>{" "}
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {" "}
+                Certificate Type
+              </h3>
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 {["Degree", "Certificate"].map((t) => (
                   <button
                     key={t}
-                    className={`py-2 px-3 rounded-lg font-medium text-sm border transition 
-         ${
-           type === t
-             ? "bg-indigo-600 text-white border-indigo-600"
-             : "bg-white text-gray-700 border-gray-300 hover:bg-indigo-50"
-         }`}
                     onClick={() => setType(t)}
+                    className={`py-2 px-3 rounded-lg font-medium text-sm border transition-all ${
+                      type === t
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        : "bg-white text-gray-700 border-gray-300 hover:bg-indigo-50"
+                    }`}
                   >
-                    {t}{" "}
+                    {t}
                   </button>
-                ))}{" "}
-              </div>{" "}
-              <div className="mb-4 relative">
-                {" "}
+                ))}
+              </div>
+
+              <div className="relative mb-4">
                 <input
                   type="file"
-                  id="file-upload"
-                  accept=".html" // Ensure only HTML files are accepted
+                  accept=".html"
                   onChange={handleFileChange}
                   className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                 />
@@ -351,44 +438,45 @@ export default function UploadTempComp() {
                   }`}
                 >
                   {file
-                    ? `File ready: ${file.name}. Size: ${(
+                    ? `✅ File ready: ${file.name} (${(
                         file.size /
                         1024 /
                         1024
-                      ).toFixed(2)} MB`
-                    : "Drag & Drop or Click to Upload (.html file)"}{" "}
-                </div>{" "}
-              </div>{" "}
+                      ).toFixed(2)} MB)`
+                    : "📄 Drag & Drop or Click to Upload (.html file)"}
+                </div>
+              </div>
+
               <button
                 onClick={uploadTemplate}
                 disabled={!rawFileContent || uploading || !certificateName}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg py-2 w-full transition disabled:opacity-50"
+                className="w-full py-2.5 rounded-lg font-semibold text-white 
+              bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 
+              transition-all duration-300 shadow-md hover:shadow-lg disabled:opacity-50"
               >
-                {" "}
-                {uploading
-                  ? "Saving Chunks..."
-                  : "Upload (Uses Client-Side Chunking)"}{" "}
-              </button>{" "}
-            </div>{" "}
+                {uploading ? "Uploading..." : "Upload Template"}
+              </button>
+            </div>
           </div>
         )}
-        {/* View Modal (Updated to include Source Code view) */}{" "}
+
+        {/* View Modal */}
         {modalTemplate && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            {" "}
-            <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full p-6 relative">
-              {" "}
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full p-6 relative animate-fade-in-up">
               <button
                 onClick={() => setModalTemplate(null)}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl"
+                className="absolute top-3 right-3 text-gray-500 hover:text-indigo-600 text-2xl"
               >
-                ✕{" "}
-              </button>{" "}
-              <h2 className="text-xl font-semibold mb-4 pr-10">
-                Template: {modalTemplate.certificateName}{" "}
+                ✕
+              </button>
+
+              <h2 className="text-2xl font-semibold mb-4 text-indigo-700">
+                {modalTemplate.certificateName}
               </h2>
+
               {/* Tab Controls */}
-              <div className="flex border-b mb-4">
+              <div className="flex border-b border-gray-200 mb-4">
                 <button
                   onClick={() => setModalView("preview")}
                   className={`px-4 py-2 font-medium text-sm transition ${
@@ -410,29 +498,26 @@ export default function UploadTempComp() {
                   Source Code
                 </button>
               </div>
-              {/* Content Area */}
-              <div className="h-[60vh]">
+
+              <div className="h-[70vh] rounded-xl overflow-hidden border border-gray-200 shadow-inner">
                 {modalView === "preview" ? (
-                  // The iframe uses a Data URL for live preview
                   <iframe
                     srcDoc={modalTemplate.url}
                     title={modalTemplate.name}
-                    className="w-full h-full rounded-lg border"
+                    className="w-full h-full rounded-lg border-none"
                   />
                 ) : (
-                  // Display the raw HTML content
                   <textarea
                     readOnly
                     value={modalTemplate.htmlContent}
-                    className="w-full h-full p-4 font-mono text-xs border border-gray-300 rounded-lg resize-none bg-gray-50"
-                    placeholder="Loading source code..."
+                    className="w-full h-full p-4 font-mono text-xs text-gray-800 bg-gray-50 border-none focus:outline-none"
                   />
                 )}
-              </div>{" "}
-            </div>{" "}
+              </div>
+            </div>
           </div>
-        )}{" "}
-      </div>{" "}
+        )}
+      </div>
     </div>
   );
 }

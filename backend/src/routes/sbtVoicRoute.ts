@@ -61,69 +61,102 @@ router.post("/mint-voic-sbt", async (req, res) => {
         .json({ error: "metaUri, walletId, and mockID are required." });
     }
 
-    // --- Parse USER'S wallet address ---
-    let ownerAddress: Address;
+    // --- Parse Wallet ---
+    let ownerAddress;
     try {
       ownerAddress = Address.parse(walletId);
     } catch (e) {
-      console.warn("Invalid walletId format:", walletId);
+      console.warn("❌ Invalid walletId format:", walletId);
       return res.status(400).json({ error: "Invalid walletId format." });
     }
 
-    // --- Create the content cell for metadata ---
+    // --- Build TON content cell ---
     const contentCell = beginCell()
       .storeUint(0x01, 8)
       .storeStringTail(metaUri)
       .endCell();
 
-    // --- Create contract config & instance ---
     const config = {
       index: 0n,
       collectionAddress: null,
       ownerAddress,
       content: contentCell,
     };
+
     const sbtItem = SbtItem.createFromConfig(config, sbtCodeCell);
     const sbtContract = tonClient.open(sbtItem);
 
-    // --- Send deploy transaction ---
+    // --- Deploy the SBT ---
     await sbtContract.sendDeploy(adminSender, toNano("0.05"));
     const deployedAddress = sbtContract.address.toString();
+
     console.log(`✅ Deploy message sent. SBT Address: ${deployedAddress}`);
 
-    // --- Store deployAddress in Firestore (Admin SDK) ---
+    // --- Update Firestore ---
     const collegeDocRef = db.collection("colleges").doc(mockID);
     const collegeSnap = await collegeDocRef.get();
 
     if (collegeSnap.exists) {
-      const data = collegeSnap.data();
-      if (!data?.sbtAddress) {
-        await collegeDocRef.set(
-          { sbtAddress: deployedAddress },
-          { merge: true }
-        );
-        console.log(`✅ Stored deployAddress for mockID ${mockID}`);
+      console.log(`📘 Found existing college document for ${mockID}.`);
+      await collegeDocRef.set(
+        {
+          sbtAddress: deployedAddress,
+          deployAddress: deployedAddress,
+          lastMintedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      console.log(`✅ Stored sbtAddress (${deployedAddress}) in Firestore.`);
+    } else {
+      await collegeDocRef.set({
+        sbtAddress: deployedAddress,
+        deployAddress: deployedAddress,
+        createdAt: new Date().toISOString(),
+      });
+      console.log(
+        `🆕 Created new college doc for ${mockID} with deployAddress.`
+      );
+    }
+
+    // --- Verify Firestore Write ---
+    const verifySnap = await collegeDocRef.get();
+    if (verifySnap.exists) {
+      const verifyData = verifySnap.data();
+      console.log("🧾 Firestore document after update:", verifyData);
+
+      if (verifyData && verifyData.deployAddress === deployedAddress) {
+        console.log("✅ Firestore write verified successfully!");
       } else {
-        console.log(`⚠️ sbtAddress already exists, skipping Firestore update.`);
+        console.warn(
+          "⚠️ Firestore write mismatch or deployAddress missing:",
+          verifyData?.deployAddress
+        );
       }
     } else {
-      await collegeDocRef.set({ sbtAddress: deployedAddress });
-      console.log(
-        `✅ Created college doc and stored deployAddress for mockID ${mockID}`
-      );
+      console.error("❌ Firestore verification failed — document not found!");
     }
 
     // --- Respond to frontend ---
     res.status(200).json({
-      message: "SBT deployed and Firestore updated",
+      message: "SBT deployed and Firestore verified",
       sbtAddress: deployedAddress,
       ownerAddress: ownerAddress.toString(),
+      firestoreStatus: "verified",
     });
-  } catch (error: any) {
-    console.error("❌ Error in /mint-voic-sbt:", error.message);
-    res
-      .status(500)
-      .json({ error: "Internal Server Error", details: error.message });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error("❌ Error in /mint-voic-sbt:", error.message);
+      res.status(500).json({
+        error: "Internal Server Error",
+        details: error.message,
+      });
+    } else {
+      console.error("❌ Unknown error in /mint-voic-sbt:", error);
+      res.status(500).json({
+        error: "Unknown Server Error",
+        details: String(error),
+      });
+    }
   }
 });
 

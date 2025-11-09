@@ -185,6 +185,8 @@ export default function StudentRegistrar() {
 
   const handleViewCertificates = async (student: Student) => {
     try {
+      console.log("🟢 Opening certificates for:", student.name, student.id);
+
       const certRef = collection(
         db,
         "colleges",
@@ -195,17 +197,20 @@ export default function StudentRegistrar() {
       );
       const certSnap = await getDocs(certRef);
 
+      console.log("📜 certSnap size:", certSnap.size);
+
       if (certSnap.empty) {
         alert(`No certificates found for ${student.name}`);
         return;
       }
 
-      // Map all certificates and rename dynamically
       const certList = certSnap.docs.map((doc, index) => ({
         id: doc.id,
-        title: `Certificate - ${index + 1}`, // auto numbering
-        fileURL: doc.data().pdfUrl || doc.data().fileURL || "", // handle naming consistency
+        title: `Certificate - ${index + 1}`,
+        fileURL: doc.data().pdfUrl || doc.data().fileURL || "",
       }));
+
+      console.log("✅ Certificates found:", certList);
 
       setCertificates(certList);
       setSelectedStudent(student);
@@ -445,279 +450,224 @@ export default function StudentRegistrar() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-blue-50 font-sans p-4">
       {/* Header */}
-      <header className="flex flex-col md:flex-row items-center justify-between px-6 py-4 bg-white shadow-lg border-b border-indigo-100 sticky top-0 z-20">
-        <div className="flex items-center gap-4 mb-3 md:mb-0">
-          <Building2 className="w-8 h-8 text-indigo-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              {collegeDetails.name}
-            </h1>
-            {collegeDetails.address && (
-              <p className="text-sm text-gray-500">{collegeDetails.address}</p>
-            )}
-          </div>
+      <header className="bg-white shadow-md rounded-2xl p-4 mb-5 flex items-center gap-3 sticky top-0 z-20">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-400 flex items-center justify-center shadow">
+          <Building2 className="w-5 h-5 text-white" />
         </div>
-        <div className="flex items-center gap-4 flex-wrap">
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium shadow-sm transition transform hover:scale-105"
-          >
-            <Download className="w-5 h-5" />
-            Export CSV
-          </button>
-          <button className="flex items-center gap-2 px-5 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm font-medium shadow-sm transition transform hover:scale-105">
-            <FileText className="w-5 h-5" />
-            Import CSV
-          </button>
+        <div>
+          <h1 className="text-lg font-bold text-gray-800 leading-tight">
+            {collegeDetails.name || "Institution"}
+          </h1>
+          <p className="text-xs text-gray-500 truncate">
+            {collegeDetails.address || "Manage Students & Certificates"}
+          </p>
         </div>
       </header>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6 items-center mt-6">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute top-3 left-3 text-gray-400 w-5 h-5" />
+      {/* Filters (Collapsible on Mobile) */}
+      <div className="bg-white shadow-sm rounded-2xl p-4 border border-gray-100 mb-5">
+        <div className="relative mb-3">
+          <Search className="absolute top-2.5 left-3 text-gray-400 w-4 h-4" />
           <input
             type="text"
-            placeholder="Search by name, email, program..."
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition"
+            placeholder="Search students..."
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-300 text-sm focus:ring-2 focus:ring-indigo-400"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className="border border-gray-300 rounded-xl p-2 shadow-sm"
-          value={statusFilter ?? ""}
-          onChange={(e) => setStatusFilter(e.target.value || null)}
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <select
-          className="border border-gray-300 rounded-xl p-2 shadow-sm"
-          value={programFilter ?? ""}
-          onChange={(e) => setProgramFilter(e.target.value || null)}
-        >
-          <option value="">All Programs</option>
-          {[...new Set(students.map((s) => s.program))].map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <select
-          className="border border-gray-300 rounded-xl p-2 shadow-sm"
-          value={yearFilter ?? ""}
-          onChange={(e) =>
-            setYearFilter(e.target.value ? Number(e.target.value) : null)
-          }
-        >
-          <option value="">All Years</option>
-          {[...new Set(students.map((s) => s.year))].sort().map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            className="border border-gray-300 rounded-xl p-2 text-sm text-gray-700"
+            value={statusFilter ?? ""}
+            onChange={(e) => setStatusFilter(e.target.value || null)}
+          >
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <select
+            className="border border-gray-300 rounded-xl p-2 text-sm text-gray-700"
+            value={programFilter ?? ""}
+            onChange={(e) => setProgramFilter(e.target.value || null)}
+          >
+            <option value="">Programs</option>
+            {[...new Set(students.map((s) => s.program))].map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          <select
+            className="border border-gray-300 rounded-xl p-2 text-sm text-gray-700 col-span-2"
+            value={yearFilter ?? ""}
+            onChange={(e) =>
+              setYearFilter(e.target.value ? Number(e.target.value) : null)
+            }
+          >
+            <option value="">All Years</option>
+            {[...new Set(students.map((s) => s.year))].sort().map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto bg-white rounded-2xl shadow-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-indigo-50">
-            <tr>
-              {["Name", "Email", "Program", "Status", "Year", "Actions"].map(
-                (col) => (
-                  <th
-                    key={col}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                    onClick={() => {
-                      const key = col.toLowerCase() as keyof Student;
-                      if (sortField === key)
-                        setSortDir(sortDir === "asc" ? "desc" : "asc");
-                      else {
-                        setSortField(key);
-                        setSortDir("asc");
-                      }
-                    }}
-                  >
-                    {col}{" "}
-                    {sortField === col.toLowerCase()
-                      ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
-                      : ""}
-                  </th>
-                )
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {filteredStudents.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="text-center py-6 text-gray-400 font-medium"
-                >
-                  No students found.
-                </td>
-              </tr>
-            ) : (
-              filteredStudents.map((s, idx) => (
-                <tr
-                  key={s.id}
-                  className={`transition hover:bg-indigo-50 ${
-                    idx % 2 === 0 ? "bg-white" : "bg-indigo-50/50"
+      {/* Students List (Card View) */}
+      <div className="space-y-4">
+        {filteredStudents.length === 0 ? (
+          <div className="text-center text-gray-400 text-sm py-10">
+            No students found.
+          </div>
+        ) : (
+          filteredStudents.map((s) => (
+            <div
+              key={s.id}
+              className="bg-white shadow-sm rounded-2xl p-4 border border-gray-100 transition hover:shadow-md"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-base font-semibold text-gray-800">
+                  {s.name}
+                </h2>
+                <span
+                  className={`px-2.5 py-1 text-xs rounded-full font-medium ${
+                    s.status === "active"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
                   }`}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-800">
-                    {s.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {s.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-700">
-                    {s.program}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        s.status === "active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {s.status.toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-700">
-                    {s.year}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    <button
-                      onClick={() => handleViewCertificates(s)}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md text-xs transition"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedStudent(s);
-                        setShowCertModal(true);
-                      }}
-                      className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs transition"
-                    >
-                      Certificate
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                  {s.status.toUpperCase()}
+                </span>
+              </div>
+
+              <p className="text-xs text-gray-500 mb-1">{s.email}</p>
+              <p className="text-sm text-gray-700 mb-2">
+                🎓 {s.program} — {s.year}
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => handleViewCertificates(s)}
+                  className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                >
+                  View
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedStudent(s);
+                    setShowCertModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+                >
+                  Issue
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      {/* Certificates Modal */}
+      {/* Certificate Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-[95%] max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Certificates of {selectedStudent?.name}
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl">
+            <h2 className="text-lg font-bold text-indigo-700 mb-3">
+              Certificates — {selectedStudent?.name}
             </h2>
-
-            {/* If a certificate is selected, show PDF */}
             {selectedCertificate ? (
-              <div className="flex flex-col items-center">
-                <div className="w-full h-[70vh] border rounded-lg overflow-hidden mb-4">
-                  <embed
+              // If user clicked "View" — show PDF preview
+              <div className="flex flex-col items-center relative">
+                {/* PDF Preview */}
+                <div className="w-full h-[65vh] border rounded-xl overflow-hidden mb-4 shadow-inner relative">
+                  <iframe
                     src={selectedCertificate.fileURL}
-                    type="application/pdf"
-                    width="100%"
-                    height="100%"
+                    title="Certificate PDF Preview"
+                    className="w-full h-full rounded-lg border-0"
                   />
+                  {/* Secure Download Overlay Button */}
+                  <button
+                    onClick={() =>
+                      selectedStudent &&
+                      handleDownloadCertificate(
+                        selectedStudent.id,
+                        selectedCertificate.id
+                      )
+                    }
+                    className="absolute top-3 right-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1.5 rounded-lg shadow-md transition"
+                  >
+                    ⬇️ Secure Download
+                  </button>
                 </div>
+
+                {/* Back Button */}
                 <button
                   onClick={() => setSelectedCertificate(null)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
+                  className="w-full py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition"
                 >
-                  Back to List
+                  ← Back to Certificates
                 </button>
               </div>
             ) : (
-              <>
-                <ul className="divide-y divide-gray-200 max-h-60 overflow-y-auto">
-                  {certificates.map((c) => (
-                    <li
-                      key={c.id}
-                      className="py-2 flex justify-between items-center text-sm text-gray-700"
-                    >
-                      <span>{c.title}</span>
-                      <div className="flex gap-3">
-                        {c.fileURL ? (
-                          <>
-                            {/* Inline View Button */}
-                            <button
-                              onClick={() => setSelectedCertificate(c)}
-                              className="text-indigo-600 hover:underline text-xs font-medium"
-                            >
-                              View
-                            </button>
-
-                            {/* Download Button (with metadata injection) */}
-                            <button
-                              onClick={() =>
-                                selectedStudent &&
-                                handleDownloadCertificate(
-                                  selectedStudent.id,
-                                  c.id
-                                )
-                              }
-                              className="text-green-600 hover:underline text-xs font-medium"
-                            >
-                              Download
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-gray-400 text-xs italic">
-                            No file
-                          </span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Modal Close Button */}
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="mt-5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full transition"
-                >
-                  Close
-                </button>
-              </>
+              // Default — show certificate list
+              <div className="max-h-[60vh] overflow-y-auto space-y-2">
+                {certificates.map((c) => (
+                  <div
+                    key={c.id}
+                    className="bg-gray-50 rounded-xl p-3 text-sm flex justify-between items-center"
+                  >
+                    <span className="truncate">{c.title}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedCertificate(c)}
+                        className="text-indigo-600 hover:underline text-xs"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() =>
+                          selectedStudent &&
+                          handleDownloadCertificate(selectedStudent.id, c.id)
+                        }
+                        className="text-green-600 hover:underline text-xs"
+                      >
+                        Download
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
+
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-4 w-full py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
 
-      {/* Certificate Generation Modal */}
+      {/* Certificate Generator Modal */}
       {showCertModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl p-6 overflow-y-auto max-h-[90vh] relative">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3">
+          <div className="bg-white rounded-2xl w-full max-w-md p-5 shadow-2xl overflow-y-auto max-h-[85vh]">
             <button
               onClick={() => setShowCertModal(false)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
+              className="absolute top-3 right-4 text-gray-400 hover:text-indigo-600 text-xl"
             >
               ✕
             </button>
-            <h2 className="text-xl font-semibold mb-4">
-              Generate Certificate for {selectedStudent?.name}
+
+            <h2 className="text-lg font-bold text-indigo-700 mb-4">
+              Generate Certificate
             </h2>
 
-            {/* Step 1: Type */}
-            <div className="flex gap-3 mb-4">
+            <div className="flex gap-2 mb-3">
               {["degree", "certificate"].map((type) => (
                 <button
                   key={type}
@@ -726,77 +676,60 @@ export default function StudentRegistrar() {
                     setSelectedTemplate(null);
                     setPreviewHTML("");
                   }}
-                  className={`px-4 py-2 rounded-lg border text-sm font-medium ${
+                  className={`px-3 py-2 text-xs rounded-lg border ${
                     certType === type
-                      ? "bg-indigo-600 text-white"
-                      : "bg-gray-100 hover:bg-gray-200"
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-gray-100 text-gray-700 border-gray-200"
                   }`}
                 >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                  {type}
                 </button>
               ))}
             </div>
-            {/* Step 2: Template */}
+
             {certType && (
-              <div className="mb-4">
-                <h3 className="text-gray-700 font-medium mb-2">
-                  Select Template
-                </h3>
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  {templates
-                    .filter((t) => t.type.toLowerCase() === certType)
-                    .map((t) => (
-                      <button
-                        key={t.templateId}
-                        onClick={() => handleTemplateSelect(t)}
-                        className={`p-3 border rounded-lg text-left hover:bg-indigo-50 transition text-sm ${
-                          selectedTemplate?.templateId === t.templateId
-                            ? "border-indigo-600 bg-indigo-50"
-                            : "border-gray-200"
-                        }`}
-                      >
-                        <p className="font-medium text-gray-800">
-                          {t.certificateName || t.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{t.type}</p>
-                      </button>
-                    ))}
-                </div>
+              <div className="grid grid-cols-1 gap-2 mb-4">
+                {templates
+                  .filter((t) => t.type.toLowerCase() === certType)
+                  .map((t) => (
+                    <button
+                      key={t.templateId}
+                      onClick={() => handleTemplateSelect(t)}
+                      className={`p-2 border rounded-lg text-left text-sm ${
+                        selectedTemplate?.templateId === t.templateId
+                          ? "border-indigo-600 bg-indigo-50"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      {t.certificateName || t.name}
+                    </button>
+                  ))}
               </div>
             )}
-            {/* Step 3: Preview */}
+
             {loadingPreview ? (
-              <div className="text-center text-gray-500">
+              <p className="text-center text-gray-500 text-sm py-5">
                 Loading preview...
-              </div>
+              </p>
             ) : previewHTML ? (
               <iframe
                 srcDoc={previewHTML}
                 title="Certificate Preview"
-                className="w-full h-[60vh] border rounded-lg"
+                className="w-full h-[50vh] border rounded-xl"
               />
             ) : (
-              <p className="text-sm text-gray-400 text-center">
-                Select a template to see preview
+              <p className="text-sm text-gray-400 text-center py-5">
+                Select a template to see preview.
               </p>
             )}
-            {/* Actions */}
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setShowCertModal(false)}
-                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
-              >
-                Cancel
-              </button>
-              {previewHTML && (
-                <button
-                  onClick={sendCertificate}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                >
-                  Generate & Send
-                </button>
-              )}
-            </div>
+
+            <button
+              onClick={sendCertificate}
+              disabled={!previewHTML}
+              className="mt-4 w-full py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 disabled:opacity-50"
+            >
+              🚀 Generate & Send
+            </button>
           </div>
         </div>
       )}

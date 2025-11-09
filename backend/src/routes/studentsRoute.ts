@@ -5,6 +5,7 @@ import { uploadBufferToPinata } from "../config/pinataConfig";
 import { SbtItem } from "../ton/SbtItem";
 import { tonClient, sbtCodeCell, adminSender } from "../ton/tonClient";
 import { Address, beginCell, toNano } from "ton";
+import { admin } from "../config/firebaseConfig";
 
 const router = Router();
 
@@ -201,6 +202,23 @@ router.post("/student-gen-mint", async (req, res) => {
       },
       { merge: true }
     );
+
+    try {
+      const collegeRef = db.collection("colleges").doc(collegeId);
+      await collegeRef.update({
+        certificateIssued: admin.firestore.FieldValue.increment(1),
+      });
+      console.log("📈 certificateIssued incremented successfully.");
+    } catch (incrementErr) {
+      if (incrementErr instanceof Error) {
+        console.warn(
+          "⚠️ Failed to increment certificateIssued:",
+          incrementErr.message
+        );
+      } else {
+        console.warn("⚠️ Failed to increment certificateIssued:", incrementErr);
+      }
+    }
 
     console.log("✅ Certificate process completed successfully!");
     res.status(200).json({

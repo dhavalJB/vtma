@@ -9,10 +9,29 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useSession } from "../App"; // ✅ import context
+import { useSession } from "../App";
 import { db } from "../firebaseConfig";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 
+// 🔹 Local type matching your app session
+interface SessionData {
+  role: "organization" | "individual" | "admin";
+  mockID: string;
+  userData: any;
+  studentsData: any[];
+  sessionStart: number;
+  sessionExpiry: number;
+}
+
+// 🔹 Static onboarding slides
 const slides = [
   {
     id: 1,
@@ -59,9 +78,15 @@ const slides = [
 export default function Onboarding() {
   const [index, setIndex] = useState(0);
   const navigate = useNavigate();
-  const { setSession } = useSession(); // ✅ get from context
+  const { setSession } = useSession();
 
-  // Check existing session
+  // 🔐 Login modal state
+  const [showLogin, setShowLogin] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loadingLogin, setLoadingLogin] = useState(false);
+
+  // 🧭 Auto-login if session exists
   useEffect(() => {
     const session = localStorage.getItem("session");
     if (session) {
@@ -79,7 +104,7 @@ export default function Onboarding() {
     setIndex((prev) => (prev < slides.length - 1 ? prev + 1 : prev));
   const prevSlide = () => setIndex((prev) => (prev > 0 ? prev - 1 : prev));
 
-  // ✅ Firestore Login / Session Setup
+  // 🧪 Prototype mode (for quick test)
   const handleRoleSelect = async (role: "organization" | "individual") => {
     try {
       const mockID = role === "organization" ? "college_001" : "student_001";
@@ -98,11 +123,7 @@ export default function Onboarding() {
       let studentsData: any[] = [];
 
       if (role === "organization") {
-        const studentsRef = collection(
-          doc(db, "colleges", mockID), // ✅ reference the parent document first
-          "students" // ✅ then access its subcollection
-        );
-
+        const studentsRef = collection(db, "colleges", mockID, "students");
         const studentSnap = await getDocs(studentsRef);
         studentsData = studentSnap.docs.map((d) => ({
           id: d.id,
@@ -110,8 +131,9 @@ export default function Onboarding() {
         }));
       }
 
-      const sessionData = {
-        role,
+      // ✅ Correct fix: explicitly declare sessionData type
+      const sessionData: SessionData = {
+        role, // already correctly typed as "organization" | "individual"
         mockID,
         userData,
         studentsData,
@@ -119,9 +141,8 @@ export default function Onboarding() {
         sessionExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000,
       };
 
-      // ✅ Update both localStorage and context
       localStorage.setItem("session", JSON.stringify(sessionData));
-      setSession(sessionData); // now context knows
+      setSession(sessionData);
       navigate(`/${role}`);
     } catch (error) {
       console.error("Error initializing session:", error);
@@ -129,8 +150,61 @@ export default function Onboarding() {
     }
   };
 
+  // 🔐 Email Login (Firebase Auth + Firestore lookup)
+  const handleEmailLogin = async () => {
+    setLoadingLogin(true);
+    try {
+      const auth = getAuth();
+      const userCred = await signInWithEmailAndPassword(auth, email, password);
+      const userEmail = userCred.user.email;
+      console.log("✅ Logged in as:", userEmail);
+
+      // Match email to a college
+      const collegesRef = collection(db, "colleges");
+      const q = query(collegesRef, where("email", "==", userEmail));
+      const querySnap = await getDocs(q);
+
+      if (querySnap.empty) {
+        alert("No organization found for this email!");
+        return;
+      }
+
+      const collegeDoc = querySnap.docs[0];
+      const collegeData = collegeDoc.data();
+      const mockID = collegeDoc.id;
+
+      // Fetch students for org dashboard
+      const studentsRef = collection(db, "colleges", mockID, "students");
+      const studentsSnap = await getDocs(studentsRef);
+      const studentsData = studentsSnap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+
+      const sessionData: SessionData = {
+        role: "organization" as const,
+        mockID,
+        userData: collegeData,
+        studentsData,
+        sessionStart: Date.now(),
+        sessionExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      };
+
+      localStorage.setItem("session", JSON.stringify(sessionData));
+      setSession(sessionData);
+      navigate("/organization");
+      setShowLogin(false);
+    } catch (err: any) {
+      console.error("❌ Login failed:", err);
+      alert(err.message || "Invalid credentials");
+    } finally {
+      setLoadingLogin(false);
+    }
+  };
+
   const current = slides[index];
 
+  // 🌈 UI
   return (
     <div className="flex flex-col items-center justify-between min-h-screen bg-gradient-to-b from-white to-indigo-50 px-6 text-center pb-6 relative">
       {index > 0 && (
@@ -168,21 +242,8 @@ export default function Onboarding() {
         </AnimatePresence>
       </div>
 
-      {/* Bottom Dots + Actions */}
+      {/* Footer Actions */}
       <div className="flex flex-col items-center gap-5 mt-auto mb-4 w-full px-10">
-        {index < slides.length - 1 && (
-          <div className="flex justify-center gap-2 mb-2">
-            {slides.map((_, i) => (
-              <div
-                key={i}
-                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                  i === index ? "bg-indigo-600 scale-110" : "bg-gray-300"
-                }`}
-              />
-            ))}
-          </div>
-        )}
-
         {index < slides.length - 1 ? (
           <button
             onClick={nextSlide}
@@ -190,15 +251,14 @@ export default function Onboarding() {
           >
             <span className="relative z-10">Next</span>
             <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
-            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></span>
           </button>
         ) : (
           <div className="flex flex-col gap-3 w-full">
             <button
-              onClick={() => handleRoleSelect("organization")}
+              onClick={() => setShowLogin(true)}
               className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white py-3.5 rounded-2xl shadow-md text-sm font-semibold active:scale-95 transition-all duration-300"
             >
-              Organization
+              Organization Login
             </button>
             <button
               onClick={() => handleRoleSelect("individual")}
@@ -215,6 +275,48 @@ export default function Onboarding() {
           </div>
         )}
       </div>
+
+      {/* 🔐 Login Modal */}
+      {showLogin && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl shadow-lg w-80">
+            <h2 className="text-lg font-semibold text-indigo-700 mb-4">
+              Organization Sign In
+            </h2>
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:ring-2 focus:ring-indigo-400"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-indigo-400"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              disabled={loadingLogin}
+              onClick={handleEmailLogin}
+              className={`w-full py-2 rounded-lg text-white font-medium transition ${
+                loadingLogin
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700"
+              }`}
+            >
+              {loadingLogin ? "Signing In..." : "Login"}
+            </button>
+            <button
+              onClick={() => setShowLogin(false)}
+              className="mt-3 w-full text-sm text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
