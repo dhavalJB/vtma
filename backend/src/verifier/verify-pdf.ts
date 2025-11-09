@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { PDFDocument } from "pdf-lib";
 import formidable from "formidable";
 import fs from "fs/promises";
-import { db } from "../config/firebaseConfig"; // ✅ Firebase Admin SDK
+import { db } from "../config/firebaseConfig";
 import crypto from "crypto-js";
 
 interface RegistryData {
@@ -19,10 +19,12 @@ interface CertData {
     fullName?: string;
     shortName?: string;
     regId?: string;
+    logo?: any[];
   };
   studentId?: string;
   templateId?: string;
   pdfIpfs?: string;
+  pdfUrl?: string;
   metaUri?: string;
   mintedAt?: string;
   [key: string]: any;
@@ -30,55 +32,43 @@ interface CertData {
 
 export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log("🔍 Starting PDF verification...");
+    console.log("🔍 Starting VishwasPatra verification...");
 
-    // 🧾 Parse uploaded PDF
     const form = formidable({ multiples: false });
     const [fields, files] = await form.parse(req);
-    const file = (files.file as formidable.File[])?.[0];
 
-    if (!file) {
-      res.status(400).json({ error: "No PDF uploaded" });
-      return;
-    }
+    let compositeHash = fields.hash?.[0]; // ✅ hash passed directly from frontend
+    let file = (files.file as formidable.File[])?.[0];
 
-    // 📄 Load and extract metadata
-    const pdfBytes = await fs.readFile(file.filepath);
-    const pdfDoc = await PDFDocument.load(pdfBytes);
-    const title = pdfDoc.getTitle();
-    const author = pdfDoc.getAuthor();
-    const subject = pdfDoc.getSubject();
-    const keywords = pdfDoc.getKeywords();
+    // 🧾 If PDF is uploaded, extract its metadata
+    if (file) {
+      console.log("📄 Reading uploaded PDF file...");
+      const pdfBytes = await fs.readFile(file.filepath);
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      const keywords = pdfDoc.getKeywords();
 
-    let compositeHash = "—";
-    let version = "—";
-
-    if (keywords && typeof keywords === "string") {
-      try {
-        const parsed = JSON.parse(keywords);
-        compositeHash = parsed.compositeHash || "—";
-        version = parsed.version || "—";
-      } catch {
-        console.warn("⚠️ Could not parse keywords JSON.");
+      if (keywords && typeof keywords === "string") {
+        try {
+          const parsed = JSON.parse(keywords);
+          compositeHash = parsed.compositeHash || compositeHash;
+        } catch {
+          console.warn("⚠️ Could not parse PDF keywords as JSON.");
+        }
       }
     }
 
-    console.log(
-      `📄 PDF Extracted | Title: ${title || "—"} | Issuer: ${
-        author || "—"
-      } | Hash: ${compositeHash}`
-    );
-
-    if (compositeHash === "—") {
-      res.json({
+    if (!compositeHash) {
+      res.status(400).json({
         verified: false,
-        status: "⚠️ Invalid PDF",
-        message: "Composite hash missing in PDF metadata.",
+        status: "⚠️ Invalid Request",
+        message: "No hash or PDF found for verification.",
       });
       return;
     }
 
-    // 🔍 Step 1: Check hash registry
+    console.log("🔗 Composite Hash:", compositeHash);
+
+    // 🔍 Step 1: Find registry record
     const registrySnap = await db
       .collection("compositeRegistry")
       .doc(compositeHash)
@@ -87,18 +77,16 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     if (!registrySnap.exists) {
       res.json({
         verified: false,
-        status: "❌ Unregistered PDF",
+        status: "❌ Unregistered Certificate",
         message: "No record found for this certificate hash.",
       });
       return;
     }
 
     const registryData = registrySnap.data() as RegistryData;
-    if (!registryData) throw new Error("Registry data undefined.");
+    console.log("📘 Registry Found:", registryData);
 
-    console.log("📘 Found registry entry:", registryData);
-
-    // 🔍 Step 2: Get certificate record
+    // 🔍 Step 2: Fetch Firestore certificate data
     const certSnap = await db
       .collection("colleges")
       .doc(registryData.collegeId)
@@ -112,13 +100,13 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
       res.json({
         verified: false,
         status: "⚠️ Record mismatch",
-        message: "Certificate record not found in Firestore.",
+        message: "Certificate not found under registered student record.",
       });
       return;
     }
 
     const certData = certSnap.data() as CertData;
-    if (!certData) throw new Error("Certificate data undefined.");
+    console.log("🎓 Certificate Data:", certData);
 
     // 🧩 Step 3: Recompute hash
     const fieldsForHash: Record<string, any> = {
@@ -152,25 +140,45 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     const verified = recomputedHash === compositeHash;
     console.log(
       verified
-        ? `✅ VERIFIED: ${registryData.certificateId} is authentic.`
-        : `❌ INVALID: ${registryData.certificateId} hash mismatch.`
+        ? `✅ VERIFIED — Authentic document for ${registryData.certificateId}`
+        : `❌ INVALID — Hash mismatch for ${registryData.certificateId}`
     );
 
+    // 🏛️ Extract logo
+    let logoImage = "";
+    try {
+      const logoArray = certData.collegeDetails?.logo;
+      if (Array.isArray(logoArray) && logoArray.length > 0) {
+        logoImage = logoArray[0]?.normalImage || "";
+      }
+    } catch (e) {
+      console.warn("⚠️ Could not extract college logo image.");
+    }
+
+    // 🧾 Response
     res.json({
       verified,
+      status: verified ? "✅ Authentic Certificate" : "❌ Verification Failed",
+      message: verified
+        ? "This certificate has been verified as authentic and untampered."
+        : "This certificate appears to be modified or invalid.",
       compositeHash,
       recomputedHash,
-      version,
       certificateId: registryData.certificateId,
       collegeId: registryData.collegeId,
       studentId: registryData.studentId,
-      message: verified
-        ? "✅ Certificate verified successfully."
-        : "❌ Invalid or tampered certificate.",
+      collegeName: certData.collegeDetails?.fullName || "Unknown College",
+      collegeShortName: certData.collegeDetails?.shortName || "",
+      collegeRegId: certData.collegeDetails?.regId || "",
+      logoImage,
+      pdfUrl: certData.pdfUrl || "",
+      issuedTo: certData.studentId || "",
+      issuedAt: certData.mintedAt || "",
+      studentContractAddress: certData.studentContractAddress || "",
     });
   } catch (error) {
     const err = error as Error;
-    console.error("❌ Error verifying PDF:", err.message);
+    console.error("❌ Verification Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 };

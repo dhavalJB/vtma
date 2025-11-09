@@ -98,7 +98,11 @@ export default function Onboarding() {
       let studentsData: any[] = [];
 
       if (role === "organization") {
-        const studentsRef = collection(db, `colleges/${mockID}/students`);
+        const studentsRef = collection(
+          doc(db, "colleges", mockID), // ✅ reference the parent document first
+          "students" // ✅ then access its subcollection
+        );
+
         const studentSnap = await getDocs(studentsRef);
         studentsData = studentSnap.docs.map((d) => ({
           id: d.id,

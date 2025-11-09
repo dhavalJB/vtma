@@ -5,8 +5,9 @@ import { db } from "../../../firebaseConfig";
 import { collection, getDocs, doc, getDoc, setDoc } from "firebase/firestore";
 import { Search, Building2, Download, FileText } from "lucide-react";
 import { fetchTemplateContentFromFirestore } from "../../../utils/firestoreTemplateUtils";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import crypto from "crypto-js";
+import QRCode from "qrcode";
 
 interface Student {
   id: string;
@@ -237,7 +238,7 @@ export default function StudentRegistrar() {
       const fields = {
         collegeContractAddress: certData.collegeContractAddress,
         studentContractAddress: certData.studentContractAddress,
-        collegeId: mockID, // use current college session
+        collegeId: mockID,
         collegeFullName: certData.collegeDetails?.fullName,
         collegeShortName: certData.collegeDetails?.shortName,
         collegeRegId: certData.collegeDetails?.regId,
@@ -275,8 +276,6 @@ export default function StudentRegistrar() {
 
         await setDoc(registryRef, registryEntry);
         console.log("✅ Added to composite registry:", compositeHash);
-      } else {
-        console.log("ℹ️ Already in registry, skipping insert.");
       }
 
       // 5️⃣ Fetch original PDF
@@ -285,7 +284,7 @@ export default function StudentRegistrar() {
       );
       const pdfDoc = await PDFDocument.load(pdfBytes);
 
-      // 6️⃣ Embed VishwasPatra metadata
+      // 6️⃣ Add VishwasPatra metadata
       pdfDoc.setTitle("Blockchain Verified Certificate");
       pdfDoc.setAuthor(certData.collegeDetails?.fullName || "VishwasPatra");
       pdfDoc.setSubject("VishwasPatra Authentic Certificate");
@@ -298,7 +297,40 @@ export default function StudentRegistrar() {
         }),
       ]);
 
-      // 7️⃣ Save and trigger download
+      // 7️⃣ Generate QR code for verification link
+      const verifyUrl = `http://localhost:5173/verifier?verify-hash=${compositeHash}`;
+      const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+        margin: 1,
+        width: 100,
+      });
+      const qrImage = await pdfDoc.embedPng(qrDataUrl);
+
+      // 8️⃣ Add QR code + text on last page
+      const pages = pdfDoc.getPages();
+      const lastPage = pages[pages.length - 1];
+      const { width, height } = lastPage.getSize();
+
+      const qrSize = 90;
+      const margin = 40;
+
+      lastPage.drawImage(qrImage, {
+        x: width - qrSize - margin,
+        y: margin,
+        width: qrSize,
+        height: qrSize,
+      });
+
+      // Add "Verify this document" text under QR
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      lastPage.drawText("Verify at VishwasPatra", {
+        x: width - qrSize - margin - 10,
+        y: margin - 10,
+        size: 10,
+        font,
+        color: rgb(0.1, 0.1, 0.1),
+      });
+
+      // 9️⃣ Save & download updated PDF
       const updatedPdfBytes = await pdfDoc.save();
       const blob = new Blob([updatedPdfBytes], { type: "application/pdf" });
       const link = document.createElement("a");
@@ -308,10 +340,10 @@ export default function StudentRegistrar() {
       }_${studentId}.pdf`;
       link.click();
 
-      console.log("✅ Certificate downloaded with embedded composite hash.");
+      console.log("✅ Certificate downloaded with embedded QR code and hash.");
     } catch (err) {
-      console.error("❌ Error during certificate download:", err);
-      alert("Failed to generate secure certificate.");
+      console.error("❌ Error during certificate generation:", err);
+      alert("Failed to generate secure certificate with QR.");
     }
   };
 
