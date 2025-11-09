@@ -3,28 +3,88 @@ import React, { useState } from "react";
 import { PDFDocument } from "pdf-lib";
 
 export default function Verifier() {
+  const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
+  const [meta, setMeta] = useState<any>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verified, setVerified] = useState(false);
 
+  // Step 1️⃣: Upload and parse locally
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    setFile(selectedFile);
+    setFileName(selectedFile.name);
+    setVerified(false);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
+      const arrayBuffer = await selectedFile.arrayBuffer();
       const pdfDoc = await PDFDocument.load(arrayBuffer);
-      const meta = {
-        title: pdfDoc.getTitle(),
-        author: pdfDoc.getAuthor(),
-        subject: pdfDoc.getSubject(),
-        keywords: pdfDoc.getKeywords(),
-        creator: pdfDoc.getCreator(),
-        producer: pdfDoc.getProducer(),
-        creationDate: pdfDoc.getCreationDate(),
+
+      const title = pdfDoc.getTitle();
+      const author = pdfDoc.getAuthor();
+      const subject = pdfDoc.getSubject();
+      const keywords = pdfDoc.getKeywords();
+
+      let compositeHash = "—";
+      let version = "—";
+
+      if (keywords && typeof keywords === "string") {
+        try {
+          const parsed = JSON.parse(keywords);
+          compositeHash = parsed.compositeHash || "—";
+          version = parsed.version || "—";
+        } catch {
+          console.warn("⚠️ Could not parse keywords JSON.");
+        }
+      }
+
+      const extracted = {
+        title,
+        author,
+        subject,
+        compositeHash,
+        version,
       };
-      console.log("📄 PDF Metadata:", meta);
+
+      setMeta(extracted);
+
+      console.log(
+        `Title: ${title || "—"} | Issuer: ${author || "—"} | Subject: ${
+          subject || "—"
+        } | Composite Hash: ${compositeHash} | Version: ${version}`
+      );
     } catch (err) {
-      console.error("❌ Failed to read PDF metadata:", err);
+      console.error("❌ Failed to process PDF:", err);
+    }
+  };
+
+  // Step 2️⃣: Backend Verification
+  const handleVerify = async () => {
+    if (!file) return alert("Please upload a PDF first!");
+    setVerifying(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+
+      const response = await fetch("http://localhost:5000/verify/verify-pdf", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      console.log("📡 Backend Response:", result);
+
+      if (response.ok) {
+        setVerified(true);
+      } else {
+        alert(result.error || "Verification failed.");
+      }
+    } catch (err) {
+      console.error("❌ Verification error:", err);
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -40,14 +100,14 @@ export default function Verifier() {
         </span>
       </header>
 
-      {/* Main Section */}
+      {/* Main */}
       <main className="flex-1 flex flex-col justify-center items-center text-center px-4">
         <div className="bg-white shadow-2xl rounded-3xl p-8 w-full max-w-md border border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800 mb-2">
             Verify Your Certificate
           </h2>
           <p className="text-sm text-gray-500 mb-6">
-            Upload your blockchain-issued document to inspect metadata.
+            Upload your blockchain-issued certificate to begin verification.
           </p>
 
           <label
@@ -75,8 +135,28 @@ export default function Verifier() {
             </div>
           </label>
 
+          {file && (
+            <button
+              onClick={handleVerify}
+              disabled={verifying}
+              className={`mt-6 w-full py-3 rounded-xl font-semibold transition ${
+                verifying
+                  ? "bg-gray-400 text-white cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-700 text-white"
+              }`}
+            >
+              {verifying ? "Verifying..." : "Verify Now"}
+            </button>
+          )}
+
+          {verified && (
+            <p className="mt-4 text-green-600 font-semibold">
+              ✅ Verified Successfully
+            </p>
+          )}
+
           <p className="mt-4 text-xs text-gray-400">
-            Only .pdf files are supported
+            Logs visible in browser and backend console
           </p>
         </div>
       </main>

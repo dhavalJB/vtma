@@ -7,6 +7,7 @@ import sbtRoute from "./routes/sbtVoicRoute";
 import templatesRoute from "./routes/templateRoute";
 import logoUploadRoute from "./routes/mintLogoRoute";
 import studentsRoute from "./routes/studentsRoute";
+import verificationRoute from "./routes/verificationRoute";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/api", sbtRoute);
 app.use("/template", templatesRoute);
 app.use("/api", logoUploadRoute);
 app.use("/api", studentsRoute);
+app.use("/verify", verificationRoute);
 
 // --- Initialize TON client first, then start server ---
 (async () => {
