@@ -1,5 +1,5 @@
 import { Router } from "express";
-import puppeteer from "puppeteer";
+// import puppeteer from "puppeteer"; // <-- This should be gone or commented out
 import { db } from "../config/firebaseConfig";
 import { uploadBufferToPinata } from "../config/pinataConfig";
 import { SbtItem } from "../ton/SbtItem";
@@ -70,28 +70,88 @@ router.post("/student-gen-mint", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // --- Generate PDF & PNG ---
-    console.log("🖨 Generating PDF and PNG...");
-    const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
-    const pngBuffer = await page.screenshot({ type: "png", fullPage: true });
-    await browser.close();
+    // --- UPDATED BROWSERLESS LOGIC (SEQUENTIAL) ---
+    console.log("🖨 Generating PDF and PNG via REST API...");
+
+    const API_KEY = process.env.BROWSERLESS_API_KEY;
+    if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set");
+
+    // --- 1. Get PDF first ---
+    console.log("Requesting PDF...");
+    const pdfResponse = await fetch(
+      `https://production-sfo.browserless.io/pdf?token=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: html, // CORRECTED: These properties must be inside an "options" object
+          options: {
+            format: "A4",
+            printBackground: true,
+          },
+        }),
+      }
+    );
+
+    if (!pdfResponse.ok) {
+      throw new Error(
+        `Browserless PDF failed: ${
+          pdfResponse.status
+        } ${await pdfResponse.text()}`
+      );
+    }
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+    console.log("✅ PDF received.");
+
+    // --- 2. Get PNG second ---
+    console.log("Requesting PNG...");
+    const pngResponse = await fetch(
+      `https://production-sfo.browserless.io/screenshot?token=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: html,
+          options: {
+            type: "png",
+            encoding: "binary",
+            fullPage: true, // Added this from your previous logic
+          },
+          // viewport is optional if fullPage is true, but we can keep it
+          viewport: {
+            width: 1056,
+            height: 816,
+            deviceScaleFactor: 2,
+          },
+        }),
+      }
+    );
+
+    if (!pngResponse.ok) {
+      throw new Error(
+        `Browserless PNG failed: ${
+          pngResponse.status
+        } ${await pngResponse.text()}`
+      );
+    }
+    const pngBuffer = await pngResponse.arrayBuffer();
+    console.log("✅ PNG received.");
+
     console.log("✅ PDF & PNG generated");
+    // --- END OF UPDATE ---
 
     // --- Upload to Pinata ---
     const fileBaseName = `${studentId}-${templateId}`;
     console.log("📤 Uploading PDF...");
     const pdfUpload = await uploadBufferToPinata(
-      Buffer.from(pdfBuffer),
+      Buffer.from(pdfBuffer), // Convert ArrayBuffer to Buffer
       `${fileBaseName}.pdf`
     );
     console.log("✅ PDF uploaded:", pdfUpload.url);
 
     console.log("📤 Uploading PNG...");
     const pngUpload = await uploadBufferToPinata(
-      Buffer.from(pngBuffer),
+      Buffer.from(pngBuffer), // Convert ArrayBuffer to Buffer
       `${fileBaseName}.png`
     );
     console.log("✅ PNG uploaded:", pngUpload.url);
@@ -125,7 +185,7 @@ router.post("/student-gen-mint", async (req, res) => {
       `${fileBaseName}_metadata.json`
     );
     const metaUri = `ipfs://${metadataUpload.cid}`;
-    console.log("✅ Metadata uploaded:", metadataUpload.url);
+    console.log("✅ Metadata uploaded:", metaUri); // Changed log to show metaUri
 
     // --- Mint helper for student ---
     const mintSBT = async (wallet: string, role: string, amountTON: string) => {
@@ -213,6 +273,7 @@ router.post("/student-gen-mint", async (req, res) => {
       if (incrementErr instanceof Error) {
         console.warn(
           "⚠️ Failed to increment certificateIssued:",
+
           incrementErr.message
         );
       } else {

@@ -67,8 +67,16 @@ export default function StudentRegistrar() {
           const data = collegeSnap.data();
 
           // Ensure logo URL is easy to access
-          const logoURL = data?.logo?.[0]?.normalImage || ""; // fallback if missing
-          const logoContractAddress = data?.logo?.[0]?.contractAddress || "";
+          const logoURL =
+            data?.logo?.[0]?.normalImage ||
+            data?.logo?.[0]?.image ||
+            data?.logo?.[1]?.normalImage ||
+            data?.logo?.[1]?.image ||
+            "";
+          const logoContractAddress =
+            data?.logo?.[0]?.contractAddress ||
+            data?.logo?.[1]?.contractAddress ||
+            "";
           console.log("College Logo URL:", logoURL); // <--- log here
 
           setCollegeDetails({
@@ -165,23 +173,6 @@ export default function StudentRegistrar() {
         Loading students...
       </div>
     );
-
-  const exportCSV = () => {
-    const csv = [
-      ["Name", "Email", "Program", "Status", "Year"],
-      ...students.map((s) => [s.name, s.email, s.program, s.status, s.year]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${collegeDetails.name || "students"}-list.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleViewCertificates = async (student: Student) => {
     try {

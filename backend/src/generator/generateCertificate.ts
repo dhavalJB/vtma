@@ -1,6 +1,5 @@
 import fs from "fs"; // Still need this for readFile
 import path from "path";
-import puppeteer from "puppeteer";
 import QRCode from "qrcode";
 import { PinataSDK } from "pinata";
 import dotenv from "dotenv";
@@ -30,9 +29,8 @@ export async function uploadBufferToPinata(buffer: Buffer, fileName: string) {
     : "image/png";
 
   const file = new File([buffer], fileName, { type: mimeType });
-  const upload = await pinata.upload.public.file(file as any);
+  const upload = await pinata.upload.public.file(file as any); // 4. Construct the gateway URL
 
-  // 4. Construct the gateway URL
   const gateway = process.env.PINATA_GATEWAY || "gateway.pinata.cloud";
   const url = `https://${normalizeGateway(gateway)}/ipfs/${upload.cid}`;
   console.log(`📤 Uploaded → ${url}`);
@@ -57,21 +55,41 @@ export async function generateCertificate({
     .replace(/{{INSTITUTION_NAME}}/g, institutionName)
     .replace(/{{REGISTRATION_ID}}/g, registrationId)
     .replace(/{{VERIFIED_BY}}/g, verifiedBy)
-    .replace(/{{YEAR}}/g, new Date().getFullYear().toString());
+    .replace(/{{YEAR}}/g, new Date().getFullYear().toString()); // --- UPDATED BROWSERLESS LOGIC ---
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.emulateMediaType("screen");
-  await page.setViewport({ width: 1056, height: 816, deviceScaleFactor: 2 });
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  const API_KEY = process.env.BROWSERLESS_API_KEY;
+  if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set"); // UPDATED URL: Changed from chrome.browserless.io
 
-  const buffer = Buffer.from(
-    (await page.screenshot({ encoding: "binary" })) as Buffer
+  const response = await fetch(
+    `https://production-sfo.browserless.io/screenshot?token=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html: html,
+        options: {
+          type: "png",
+          encoding: "binary",
+        },
+        viewport: {
+          width: 1056,
+          height: 816,
+          deviceScaleFactor: 2,
+        },
+      }),
+    }
   );
-  await browser.close();
 
+  if (!response.ok) {
+    // Better error logging
+    const errorText = await response.text();
+    throw new Error(
+      `Browserless /screenshot failed: ${response.status} ${errorText}`
+    );
+  }
+  const buffer = await response.arrayBuffer(); // --- END OF UPDATE ---
   const upload = await uploadBufferToPinata(
-    buffer,
+    Buffer.from(buffer), // Convert ArrayBuffer to Buffer
     `${registrationId}_certificate.png`
   );
   return { certURL: upload.url, certCID: upload.cid };
@@ -94,21 +112,41 @@ async function generateVOIC({
   html = html
     .replace(/{{COLLEGE_NAME}}/g, college)
     .replace(/{{CERTIFICATE_URL}}/g, certificateURL)
-    .replace(/{{QRCODE}}/g, qrCode);
+    .replace(/{{QRCODE}}/g, qrCode); // --- UPDATED BROWSERLESS LOGIC ---
 
-  const browser = await puppeteer.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.emulateMediaType("screen");
-  await page.setViewport({ width: 700, height: 700, deviceScaleFactor: 2 });
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  const API_KEY = process.env.BROWSERLESS_API_KEY;
+  if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set"); // UPDATED URL: Changed from chrome.browserless.io
 
-  const buffer = Buffer.from(
-    (await page.screenshot({ encoding: "binary" })) as Buffer
+  const response = await fetch(
+    `https://production-sfo.browserless.io/screenshot?token=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        html: html,
+        options: {
+          type: "png",
+          encoding: "binary",
+        }, // CORRECTED: viewport is a top-level property, NOT inside options
+        viewport: {
+          width: 1056,
+          height: 816,
+          deviceScaleFactor: 2,
+        },
+      }),
+    }
   );
-  await browser.close();
 
+  if (!response.ok) {
+    // Better error logging
+    const errorText = await response.text();
+    throw new Error(
+      `Browserless /screenshot failed: ${response.status} ${errorText}`
+    );
+  }
+  const buffer = await response.arrayBuffer(); // --- END OF UPDATE ---
   const upload = await uploadBufferToPinata(
-    buffer,
+    Buffer.from(buffer), // Convert ArrayBuffer to Buffer
     `${registrationId}_voic.png`
   );
   return { voicURL: upload.url, voicCID: upload.cid, qrCode };
@@ -137,9 +175,8 @@ export async function generateVishwasPatra({
     college: institutionName,
     certificateURL: certURL,
     registrationId,
-  });
+  }); // 2️⃣ Prepare NFT metadata
 
-  // 2️⃣ Prepare NFT metadata
   const nftMetadata = {
     name: `VishwasPatra – ${institutionName}`,
     description: `Officially verified VishwasPatra certificate issued to ${institutionName} by ${verifiedBy}.`,
@@ -166,9 +203,8 @@ export async function generateVishwasPatra({
   const metadataUpload = await uploadBufferToPinata(
     metadataBuffer,
     `${registrationId}_metadata.json`
-  );
+  ); // 3️⃣ Store to Firestore
 
-  // 3️⃣ Store to Firestore
   const docData = {
     institutionName,
     registrationId,
