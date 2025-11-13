@@ -43,7 +43,7 @@ export default function Organization() {
   const [hasSBT, setHasSBT] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [org, setOrg] = useState<any>(session?.userData || {});
-
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const menuItems = [
     {
       icon: <Home size={18} />,
@@ -182,7 +182,7 @@ export default function Organization() {
       }
 
       // 🔗 Build verification URL
-      const endpoint = `http://localhost:5000/api/verify-sbt?wallet=${encodeURIComponent(
+      const endpoint = `${backendUrl}/api/verify-sbt?wallet=${encodeURIComponent(
         walletId
       )}&college=${encodeURIComponent(
         collegeName
@@ -311,7 +311,7 @@ export default function Organization() {
       // 🟢 Log before sending
       console.log("📤 Payload to be sent:", JSON.stringify(payload, null, 2));
 
-      const res = await fetch("http://localhost:5000/api/generate-voic-sbt", {
+      const res = await fetch(`${backendUrl}/api/generate-voic-sbt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -385,7 +385,7 @@ export default function Organization() {
       );
 
       // 🔥 STEP 5: Send to backend
-      const res = await fetch("http://localhost:5000/api/mint-voic-sbt", {
+      const res = await fetch(`${backendUrl}/api/mint-voic-sbt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -445,7 +445,7 @@ export default function Organization() {
     formData.append("shortName", shortName);
 
     try {
-      const res = await fetch("http://localhost:5000/api/mint-logo-sbt", {
+      const res = await fetch(`${backendUrl}/api/mint-logo-sbt`, {
         method: "POST",
         body: formData,
       });

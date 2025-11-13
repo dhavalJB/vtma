@@ -9,6 +9,7 @@ export default function GenerateStudentCert() {
     easyGivenDate: "",
     date: "",
   });
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -27,14 +28,11 @@ export default function GenerateStudentCert() {
     e.preventDefault();
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/generate-cert-temp",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        }
-      );
+      const response = await fetch(`${backendUrl}/api/generate-cert-temp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();

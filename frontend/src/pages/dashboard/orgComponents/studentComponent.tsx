@@ -27,7 +27,7 @@ export default function StudentRegistrar() {
   const location = useLocation();
   const { session } = useSession();
   const mockID = location.state?.mockID || session?.mockID;
-
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const [students, setStudents] = useState<Student[]>([]);
   const [collegeDetails, setCollegeDetails] = useState<any>({});
   const [loading, setLoading] = useState(true);
@@ -420,7 +420,7 @@ export default function StudentRegistrar() {
 
     try {
       // FIX: Corrected URL from "/api/api/student-gen-mint" to "/api/student-gen-mint"
-      const res = await fetch("http://localhost:5000/api/student-gen-mint", {
+      const res = await fetch(`${backendUrl}/api/student-gen-mint`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

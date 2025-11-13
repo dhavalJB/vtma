@@ -7,6 +7,8 @@ export default function Verifier() {
   const [fileName, setFileName] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const BackendURL = import.meta.env.VITE_BACKEND_URL;
+  const FrontendURL = import.meta.env.VITE_FRONTEND_URL;
 
   // ✅ Unified verification (handles hash or file)
   const handleVerify = async (
@@ -22,7 +24,7 @@ export default function Verifier() {
         const formData = new FormData();
         formData.append("hash", arg);
 
-        response = await fetch("http://localhost:5000/verify/verify-pdf", {
+        response = await fetch(`${BackendURL}/verify/verify-pdf`, {
           method: "POST",
           body: formData,
         });
@@ -40,7 +42,7 @@ export default function Verifier() {
         const formData = new FormData();
         formData.append("file", file, file.name);
 
-        response = await fetch("http://localhost:5000/verify/verify-pdf", {
+        response = await fetch(`${BackendURL}/verify/verify-pdf`, {
           method: "POST",
           body: formData,
         });
@@ -138,7 +140,7 @@ export default function Verifier() {
       ]);
 
       // 3️⃣ Add verification QR (for easy re-verification)
-      const verifyUrl = `http://localhost:5173/verifier?verify-hash=${compositeHash}`;
+      const verifyUrl = `${FrontendURL}/verifier?verify-hash=${compositeHash}`;
       const qrDataUrl = await import("qrcode").then((q) =>
         q.default.toDataURL(verifyUrl, { margin: 1, width: 100 })
       );
