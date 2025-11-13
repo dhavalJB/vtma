@@ -35,7 +35,7 @@ app.use("/verify", verificationRoute);
       console.log(`⚡ Server running on port ${PORT}`);
 
       // --- Keep-alive Ping Every 40 Seconds ---
-      const PING_URL = "https://vtma-1.onrender.com";
+      const PING_URL = "https://vtma.onrender.com";
       setInterval(async () => {
         try {
           const res = await fetch(PING_URL);

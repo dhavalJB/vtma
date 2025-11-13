@@ -53,6 +53,7 @@ export default function StudentRegistrar() {
     fileURL: string;
     title: string;
   } | null>(null);
+  const FrontendURL = import.meta.env.VITE_FRONTEND_URL;
 
   // Fetch college + students
   useEffect(() => {
@@ -302,7 +303,7 @@ export default function StudentRegistrar() {
       ]);
 
       // 7️⃣ Generate QR code for verification link
-      const verifyUrl = `http://localhost:5173/verifier?verify-hash=${compositeHash}`;
+      const verifyUrl = `${FrontendURL}/verifier?verify-hash=${compositeHash}`;
       const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
         margin: 1,
         width: 100,
