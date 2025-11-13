@@ -6,8 +6,6 @@ import {
   LogOut,
   Users,
   FileCheck,
-  QrCode,
-  Building2,
   Menu,
   ShieldCheck,
   Home,
@@ -305,7 +303,7 @@ export default function Organization() {
         collegeName: org.name,
         regId: org.regId,
         walletId: org.walletId,
-        mockId: mockID, // should never be undefined
+        mockId: mockID,
       };
 
       // 🟢 Log before sending

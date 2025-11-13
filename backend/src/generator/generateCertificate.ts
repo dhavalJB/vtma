@@ -129,8 +129,8 @@ async function generateVOIC({
           encoding: "binary",
         }, // CORRECTED: viewport is a top-level property, NOT inside options
         viewport: {
-          width: 1056,
-          height: 816,
+          width: 700,
+          height: 700,
           deviceScaleFactor: 2,
         },
       }),

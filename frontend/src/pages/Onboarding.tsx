@@ -67,7 +67,7 @@ export default function Onboarding() {
 
   const [showCollegeForm, setShowCollegeForm] = useState(false);
   const [collegeData, setCollegeData] = useState({
-    collegeName: "",
+    name: "",
     shortName: "",
     email: "",
     website: "",
