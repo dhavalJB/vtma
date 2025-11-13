@@ -608,7 +608,7 @@ export default function Organization() {
           <StatCard
             icon={<FileCheck className="text-indigo-600 w-6 h-6" />}
             label="Certificates Issued"
-            value={org.certificatesIssued || 0}
+            value={org.certificatesIssued || 0 || org.certificateIssued}
           />
         </div>
 
@@ -649,13 +649,26 @@ export default function Organization() {
 
             <>
               <button
-                onClick={handleUploadClick}
-                className="group bg-gradient-to-r from-purple-500 to-indigo-500 text-white p-5 rounded-2xl shadow-md transition-transform duration-300 text-left hover:scale-[1.02] active:scale-[0.98]"
+                onClick={!org?.logo?.length ? handleUploadClick : undefined}
+                disabled={!!org?.logo?.length}
+                className={`group p-5 rounded-2xl shadow-md transition-transform duration-300 text-left 
+    ${
+      org?.logo?.length
+        ? "bg-gradient-to-r from-purple-500 to-indigo-500 cursor-not-allowed opacity-60"
+        : "bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:scale-[1.02] active:scale-[0.98]"
+    }
+  `}
               >
                 <h4 className="text-base font-semibold mb-2">Upload Logo</h4>
                 <p className="text-xs text-white/80 mb-3">
                   Add or update your institution’s logo for certificates.
                 </p>
+
+                {org?.logo?.length > 0 && (
+                  <p className="text-xs text-red-100 mt-2 font-medium">
+                    Logo already uploaded — cannot upload again.
+                  </p>
+                )}
               </button>
 
               <input

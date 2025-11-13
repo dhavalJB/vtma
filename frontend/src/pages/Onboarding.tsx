@@ -11,19 +11,10 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useSession } from "../App";
 import { db } from "../firebaseConfig";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, getDoc, collection, getDocs } from "firebase/firestore";
 
-// 🔹 Local type matching your app session
 interface SessionData {
-  role: "organization" | "individual" | "admin";
+  role: "organization";
   mockID: string;
   userData: any;
   studentsData: any[];
@@ -31,46 +22,40 @@ interface SessionData {
   sessionExpiry: number;
 }
 
-// 🔹 Static onboarding slides
 const slides = [
   {
     id: 1,
     title: "Welcome to VishwasPatra",
-    subtitle: "The decentralized trust network for authentic documents.",
-    subtext:
-      "Built on the TON blockchain for India’s digital future — enabling secure, verified, and lifelong ownership of every important certificate or document.",
+    subtitle: "The decentralized trust network",
+    subtext: "TON-powered verification",
     icon: <ShieldCheck className="w-16 h-16 text-indigo-600" />,
   },
   {
     id: 2,
     title: "Issue Securely",
-    subtitle: "Organizations issue verified digital certificates on TON.",
-    subtext:
-      "Colleges, universities, and institutions can issue blockchain-verified academic records, IDs, and certifications instantly — no intermediaries or tampering.",
+    subtitle: "Blockchain certificates",
+    subtext: "Tamper-proof issuance",
     icon: <Users className="w-16 h-16 text-indigo-600" />,
   },
   {
     id: 3,
     title: "Own with Confidence",
-    subtitle: "Individuals hold tamper-proof certificates in their wallet.",
-    subtext:
-      "Students and citizens own soulbound digital credentials — permanently verifiable, accessible, and linked to their identity.",
+    subtitle: "Digital credentials",
+    subtext: "Lifelong access",
     icon: <GraduationCap className="w-16 h-16 text-indigo-600" />,
   },
   {
     id: 4,
     title: "Verify Instantly",
-    subtitle: "Verify authenticity in seconds — no fakes, no paper.",
-    subtext:
-      "Employers, institutions, or anyone can validate authenticity instantly via QR code or blockchain hash lookup.",
+    subtitle: "QR + hash verification",
+    subtext: "Catch fakes instantly",
     icon: <ScanLine className="w-16 h-16 text-indigo-600" />,
   },
   {
     id: 5,
     title: "Get Started",
-    subtitle: "Select your role to begin your journey on VishwasPatra.",
-    subtext:
-      "Choose whether you are an Organization or an Individual to continue.",
+    subtitle: "Choose your role",
+    subtext: "Organization or Verifier",
     icon: <ArrowRight className="w-16 h-16 text-indigo-600" />,
   },
 ];
@@ -80,112 +65,95 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const { setSession } = useSession();
 
-  // 🔐 Login modal state
-  const [showLogin, setShowLogin] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loadingLogin, setLoadingLogin] = useState(false);
+  const [showCollegeForm, setShowCollegeForm] = useState(false);
+  const [collegeData, setCollegeData] = useState({
+    collegeName: "",
+    shortName: "",
+    email: "",
+    website: "",
+    city: "",
+    state: "",
+    country: "India",
+  });
 
-  // 🧭 Auto-login if session exists
+  const [telegramUser, setTelegramUser] = useState<any>(null);
+
   useEffect(() => {
-    const session = localStorage.getItem("session");
-    if (session) {
-      try {
-        const data = JSON.parse(session);
-        if (Date.now() < data.sessionExpiry) navigate(`/${data.role}`);
-        else localStorage.removeItem("session");
-      } catch {
-        localStorage.removeItem("session");
-      }
+    const tg = (window as any).Telegram?.WebApp;
+
+    if (tg) {
+      // call again here, just in case
+      tg.ready();
+
+      const idInterval = setInterval(() => {
+        const u = tg.initDataUnsafe?.user;
+        if (u) {
+          setTelegramUser(u);
+          clearInterval(idInterval);
+        }
+      }, 120);
+
+      setTimeout(() => clearInterval(idInterval), 3000);
+      return;
     }
-  }, [navigate]);
 
-  const nextSlide = () =>
-    setIndex((prev) => (prev < slides.length - 1 ? prev + 1 : prev));
-  const prevSlide = () => setIndex((prev) => (prev > 0 ? prev - 1 : prev));
+    // DEV fallback
+    if (location.hostname === "localhost") {
+      setTelegramUser({
+        id: "mock_" + Math.floor(100000 + Math.random() * 999999),
+        first_name: "MockDev",
+        username: "mock_dev",
+        isMock: true,
+      });
+      return;
+    }
 
-  // 🧪 Prototype mode (for quick test)
-  const handleRoleSelect = async (role: "organization" | "individual") => {
-    try {
-      const mockID = role === "organization" ? "college_001" : "student_001";
-      const docRef = doc(
-        db,
-        role === "organization" ? "colleges" : "students",
-        mockID
-      );
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        alert("User not found in Firestore!");
-        return;
+    setTelegramUser(null);
+  }, []);
+
+  // -----------------------------------
+  // STEP 2: Check existing user OR create mock/college
+  // -----------------------------------
+  const checkExistingUser = async () => {
+    // If local mock mode (dev)
+    if (!telegramUser) {
+      alert("Please open inside Telegram");
+      return;
+    }
+
+    const telegramId = String(telegramUser.id);
+
+    // MOCK flow on localhost
+    if (telegramUser.isMock) {
+      // create a predictable mock college id (replaceable)
+      const mockCollegeId = "college_001";
+
+      const collegeRef = doc(db, "colleges", mockCollegeId);
+      const collegeSnap = await getDoc(collegeRef);
+
+      if (!collegeSnap.exists()) {
+        await setDoc(collegeRef, {
+          isMock: true,
+          mockLabel: "Local Dev Mock College",
+          createdAt: Date.now(),
+        });
       }
 
-      const userData = docSnap.data();
-      let studentsData: any[] = [];
-
-      if (role === "organization") {
-        const studentsRef = collection(db, "colleges", mockID, "students");
-        const studentSnap = await getDocs(studentsRef);
-        studentsData = studentSnap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        }));
-      }
-
-      // ✅ Correct fix: explicitly declare sessionData type
-      const sessionData: SessionData = {
-        role, // already correctly typed as "organization" | "individual"
-        mockID,
-        userData,
-        studentsData,
-        sessionStart: Date.now(),
-        sessionExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      // session for mock admin (no employee doc needed)
+      const mockUserData = {
+        telegramId,
+        role: "admin",
+        name: "Local Dev",
+        username: telegramUser.username || "mock_dev",
+        collegeId: mockCollegeId,
+        isMock: true,
       };
 
-      localStorage.setItem("session", JSON.stringify(sessionData));
-      setSession(sessionData);
-      navigate(`/${role}`);
-    } catch (error) {
-      console.error("Error initializing session:", error);
-      alert("Failed to start session. Please try again.");
-    }
-  };
-
-  // 🔐 Email Login (Firebase Auth + Firestore lookup)
-  const handleEmailLogin = async () => {
-    setLoadingLogin(true);
-    try {
-      const auth = getAuth();
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const userEmail = userCred.user.email;
-      console.log("✅ Logged in as:", userEmail);
-
-      // Match email to a college
-      const collegesRef = collection(db, "colleges");
-      const q = query(collegesRef, where("email", "==", userEmail));
-      const querySnap = await getDocs(q);
-
-      if (querySnap.empty) {
-        alert("No organization found for this email!");
-        return;
-      }
-
-      const collegeDoc = querySnap.docs[0];
-      const collegeData = collegeDoc.data();
-      const mockID = collegeDoc.id;
-
-      // Fetch students for org dashboard
-      const studentsRef = collection(db, "colleges", mockID, "students");
-      const studentsSnap = await getDocs(studentsRef);
-      const studentsData = studentsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-
       const sessionData: SessionData = {
-        role: "organization" as const,
-        mockID,
-        userData: collegeData,
-        studentsData,
+        role: "organization",
+        mockID: mockCollegeId,
+        userData: mockUserData,
+        studentsData: [],
         sessionStart: Date.now(),
         sessionExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000,
       };
@@ -193,129 +161,215 @@ export default function Onboarding() {
       localStorage.setItem("session", JSON.stringify(sessionData));
       setSession(sessionData);
       navigate("/organization");
-      setShowLogin(false);
-    } catch (err: any) {
-      console.error("❌ Login failed:", err);
-      alert(err.message || "Invalid credentials");
-    } finally {
-      setLoadingLogin(false);
+      return;
     }
+
+    // PRODUCTION/TG flow: search every college's employee doc for telegramId
+    const collegesSnap = await getDocs(collection(db, "colleges"));
+    for (const collegeDoc of collegesSnap.docs) {
+      const collegeId = collegeDoc.id;
+      const empRef = doc(db, "colleges", collegeId, "employee", telegramId);
+      const empSnap = await getDoc(empRef);
+
+      if (empSnap.exists()) {
+        const userData = empSnap.data();
+
+        const sessionData: SessionData = {
+          role: "organization",
+          mockID: collegeId,
+          userData,
+          studentsData: [],
+          sessionStart: Date.now(),
+          sessionExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        };
+
+        localStorage.setItem("session", JSON.stringify(sessionData));
+        setSession(sessionData);
+        navigate("/organization");
+        return;
+      }
+    }
+
+    // FIRST-TIME TELEGRAM USER -> show registration/college creation form
+    setShowCollegeForm(true);
   };
 
+  // -----------------------------------
+  // STEP 3: Generate College ID and RegID helpers
+  // -----------------------------------
+  const generateCollegeId = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let id = "";
+    for (let i = 0; i < 8; i++)
+      id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+  };
+
+  const generateRegId = (state: string, shortName: string) => {
+    const stateShort = (state || "XX").slice(0, 2).toUpperCase();
+    const sname = (shortName || "COL").slice(0, 8).toUpperCase();
+    const num = Math.floor(1000 + Math.random() * 9000);
+    return `VP-${stateShort}-${sname}-${num}`;
+  };
+
+  // -----------------------------------
+  // STEP 4: Register College + Admin Employee (production only)
+  // -----------------------------------
+  const createCollegeAndAdmin = async () => {
+    if (!telegramUser) {
+      alert("Telegram user not detected. Open in Telegram Mini App.");
+      return;
+    }
+
+    const collegeId = generateCollegeId();
+    const telegramId = String(telegramUser.id);
+    const regId = generateRegId(collegeData.state, collegeData.shortName);
+
+    // -----------------------------------
+    // 1. Create college document
+    // -----------------------------------
+    await setDoc(doc(db, "colleges", collegeId), {
+      ...collegeData,
+      regId,
+      createdAt: Date.now(),
+      isMock: false,
+    });
+
+    // ❌ REMOVE THIS — INVALID FIRESTORE PATH
+    // await setDoc(doc(db, "colleges", collegeId, "regId"), { regId });
+
+    // -----------------------------------
+    // 2. Create Admin Employee (telegramId = doc id)
+    // -----------------------------------
+    const adminData = {
+      telegramId,
+      role: "admin",
+      name: telegramUser.first_name || "",
+      username: telegramUser.username || "",
+      collegeId,
+      regId,
+      createdAt: Date.now(),
+    };
+
+    await setDoc(
+      doc(db, "colleges", collegeId, "employee", telegramId),
+      adminData
+    );
+
+    // -----------------------------------
+    // 3. Create Session and navigate
+    // -----------------------------------
+    const sessionData: SessionData = {
+      role: "organization",
+      mockID: collegeId,
+      userData: adminData,
+      studentsData: [],
+      sessionStart: Date.now(),
+      sessionExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    };
+
+    localStorage.setItem("session", JSON.stringify(sessionData));
+    setSession(sessionData);
+    navigate("/organization");
+  };
+
+  // -------------------------------------------------------------------------
+  // UI: slides, onboarding, registration form
+  // -------------------------------------------------------------------------
+  const nextSlide = () =>
+    setIndex((prev) => (prev < slides.length - 1 ? prev + 1 : prev));
+  const prevSlide = () => setIndex((prev) => (prev > 0 ? prev - 1 : prev));
   const current = slides[index];
 
-  // 🌈 UI
   return (
     <div className="flex flex-col items-center justify-between min-h-screen bg-gradient-to-b from-white to-indigo-50 px-6 text-center pb-6 relative">
-      {index > 0 && (
-        <button
-          onClick={prevSlide}
-          className="absolute top-5 left-5 text-indigo-600 text-sm font-medium"
-        >
-          Back
-        </button>
-      )}
+      {showCollegeForm ? (
+        <div className="w-full max-w-md mt-12">
+          <h2 className="text-xl font-semibold mb-4 text-indigo-700">
+            Register Your College
+          </h2>
 
-      {/* Slide Content */}
-      <div className="flex flex-col items-center justify-center flex-grow mt-10">
-        <AnimatePresence mode="wait" custom={index}>
-          <motion.div
-            key={current.id}
-            custom={index}
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.45, ease: "easeOut" }}
-            className="max-w-xs"
-          >
-            <div className="flex justify-center mb-6">{current.icon}</div>
-            <h1 className="text-2xl font-semibold mb-2 text-gray-800">
-              {current.title}
-            </h1>
-            <p className="text-gray-700 text-sm mb-3 font-medium">
-              {current.subtitle}
-            </p>
-            <p className="text-gray-500 text-xs leading-relaxed">
-              {current.subtext}
-            </p>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+          {Object.keys(collegeData).map((key) => (
+            <input
+              key={key}
+              value={(collegeData as any)[key]}
+              placeholder={key}
+              onChange={(e) =>
+                setCollegeData({ ...collegeData, [key]: e.target.value })
+              }
+              className="w-full mb-3 px-3 py-2 border rounded-lg"
+            />
+          ))}
 
-      {/* Footer Actions */}
-      <div className="flex flex-col items-center gap-5 mt-auto mb-4 w-full px-10">
-        {index < slides.length - 1 ? (
           <button
-            onClick={nextSlide}
-            className="group relative w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white py-3.5 rounded-2xl shadow-lg text-sm font-semibold active:scale-95 transition-all duration-300 overflow-hidden"
+            onClick={createCollegeAndAdmin}
+            className="w-full bg-indigo-600 text-white py-3 rounded-xl mt-4"
           >
-            <span className="relative z-10">Next</span>
-            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+            Create College
           </button>
-        ) : (
-          <div className="flex flex-col gap-3 w-full">
-            <button
-              onClick={() => setShowLogin(true)}
-              className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white py-3.5 rounded-2xl shadow-md text-sm font-semibold active:scale-95 transition-all duration-300"
-            >
-              Organization Login
-            </button>
-            <button
-              onClick={() => handleRoleSelect("individual")}
-              className="bg-white border border-indigo-600 text-indigo-600 py-3.5 rounded-2xl shadow-md text-sm font-semibold active:scale-95 transition-all duration-300"
-            >
-              Individual
-            </button>
-            <button
-              onClick={() => navigate("/verifier")}
-              className="bg-white border border-indigo-600 text-indigo-600 py-3.5 rounded-2xl shadow-md text-sm font-semibold active:scale-95 transition-all duration-300"
-            >
-              Verifier
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 🔐 Login Modal */}
-      {showLogin && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-lg w-80">
-            <h2 className="text-lg font-semibold text-indigo-700 mb-4">
-              Organization Sign In
-            </h2>
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 focus:ring-2 focus:ring-indigo-400"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:ring-2 focus:ring-indigo-400"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              disabled={loadingLogin}
-              onClick={handleEmailLogin}
-              className={`w-full py-2 rounded-lg text-white font-medium transition ${
-                loadingLogin
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-700"
-              }`}
-            >
-              {loadingLogin ? "Signing In..." : "Login"}
-            </button>
-            <button
-              onClick={() => setShowLogin(false)}
-              className="mt-3 w-full text-sm text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
+      ) : (
+        <>
+          {index > 0 && (
+            <button
+              onClick={prevSlide}
+              className="absolute top-5 left-5 text-indigo-600 text-sm font-medium"
+            >
+              Back
+            </button>
+          )}
+
+          <div className="flex flex-col items-center justify-center flex-grow mt-10">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current.id}
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -50 }}
+                transition={{ duration: 0.45 }}
+                className="max-w-xs"
+              >
+                <div className="flex justify-center mb-6">{current.icon}</div>
+                <h1 className="text-2xl font-semibold mb-2 text-gray-800">
+                  {current.title}
+                </h1>
+                <p className="text-gray-700 text-sm mb-3 font-medium">
+                  {current.subtitle}
+                </p>
+                <p className="text-gray-500 text-xs leading-relaxed">
+                  {current.subtext}
+                </p>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className="flex flex-col items-center gap-5 mt-auto mb-4 w-full px-10">
+            {index < slides.length - 1 ? (
+              <button
+                onClick={nextSlide}
+                className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl shadow-lg"
+              >
+                Next
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={checkExistingUser}
+                  className="w-full bg-indigo-600 text-white py-3.5 rounded-2xl shadow-lg"
+                >
+                  College
+                </button>
+
+                <button
+                  onClick={() => navigate("/verifier")}
+                  className="w-full bg-white border border-indigo-600 text-indigo-600 py-3.5 rounded-2xl"
+                >
+                  Verifier
+                </button>
+              </>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

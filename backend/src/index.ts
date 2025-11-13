@@ -19,6 +19,8 @@ app.use(cors());
 app.use(express.json());
 
 // --- Mount routes ---
+app.get("/", (req, res) => res.send("⚔️ VP backend is alive 🚀"));
+
 app.use("/api", sbtRoute);
 app.use("/template", templatesRoute);
 app.use("/api", logoUploadRoute);

@@ -13,13 +13,13 @@ import Onboarding from "./pages/Onboarding";
 import Organization from "./pages/dashboard/Organization";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import Verifier from "./components/Verifier";
-// ----------------- Organization Dashboard Components -----------------
+
 import StudentsComponent from "./pages/dashboard/orgComponents/studentComponent";
 import UploadTempComp from "./pages/dashboard/orgComponents/uploadTempComp";
 
 // ----------------- Session Types -----------------
 interface SessionData {
-  role: "organization" | "individual" | "admin";
+  role: "organization";
   mockID: string;
   userData: any;
   studentsData?: any[];
@@ -53,10 +53,10 @@ function SessionManager({ children }: { children: React.ReactNode }) {
       const parsed = JSON.parse(stored);
       if (Date.now() < parsed.sessionExpiry) {
         setSession(parsed);
+
+        // ONLY ORGANIZATION — no individual, no admin
         if (location.pathname === "/") {
           if (parsed.role === "organization") navigate("/organization");
-          else if (parsed.role === "individual") navigate("/individual");
-          else if (parsed.role === "admin") navigate("/issuergenerator");
         }
         return;
       }
@@ -74,12 +74,12 @@ function SessionManager({ children }: { children: React.ReactNode }) {
     <TonConnectUIProvider manifestUrl="https://vishwaspatra.netlify.app/tonconnect-manifest.json">
       <SessionContext.Provider value={{ session, setSession, logout }}>
         {children}
-      </SessionContext.Provider>{" "}
+      </SessionContext.Provider>
     </TonConnectUIProvider>
   );
 }
 
-// ----------------- Main App Routes -----------------
+// ----------------- Routes -----------------
 function AppRoutes() {
   return (
     <Routes>
@@ -87,12 +87,8 @@ function AppRoutes() {
       <Route path="/organization" element={<Organization />} />
       <Route path="/student-registrar" element={<StudentsComponent />} />
       <Route path="/upload-temp-comp" element={<UploadTempComp />} />
-      <Route
-        path="/individual"
-        element={<div>Individual Dashboard - Coming Soon</div>}
-      />
       <Route path="/verifier" element={<Verifier />} />
-      <Route path="*" element={<Navigate to="/" replace />} />{" "}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
@@ -101,11 +97,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <Router>
-      {" "}
       <SessionManager>
-        {" "}
-        <AppRoutes />{" "}
-      </SessionManager>{" "}
+        <AppRoutes />
+      </SessionManager>
     </Router>
   );
 }

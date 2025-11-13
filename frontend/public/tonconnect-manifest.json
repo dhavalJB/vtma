@@ -1,7 +1,7 @@
 {
-  "url": "http://localhost:5173/",
-  "name": "VishwasPatra",
+  "url": "https://vishwaspatra.netlify.app",
+  "name": "TrustLedger",
   "iconUrl": "https://vishwaspatra.netlify.app/logo.png",
   "dappUrl": "https://vishwaspatra.netlify.app/",
-  "manifestUrl": "/tonconnect-manifest.json"
+  "manifestUrl": "https://vishwaspatra.netlify.app/tonconnect-manifest.json"
 }
