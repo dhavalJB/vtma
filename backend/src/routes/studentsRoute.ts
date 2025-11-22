@@ -9,7 +9,7 @@ import { admin } from "../config/firebaseConfig";
 
 const router = Router();
 
-// --- Internal function to mint college SBT ---
+// --- function to mint college SBT ---
 const mintForCollege = async (collegeWallet: string, metaUri: string) => {
   console.log("⛓ Minting SBT for college wallet:", collegeWallet);
   const ownerAddress = Address.parse(collegeWallet);
@@ -27,10 +27,7 @@ const mintForCollege = async (collegeWallet: string, metaUri: string) => {
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       await sbtContract.sendDeploy(adminSender, toNano("0.05"));
-      console.log(
-        "✅ College wallet minted at:",
-        sbtContract.address.toString()
-      );
+      console.log(" College wallet minted at:", sbtContract.address.toString());
       return sbtContract.address.toString();
     } catch (err: any) {
       console.warn(
@@ -70,13 +67,12 @@ router.post("/student-gen-mint", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // --- UPDATED BROWSERLESS LOGIC (SEQUENTIAL) ---
     console.log("🖨 Generating PDF and PNG via REST API...");
 
     const API_KEY = process.env.BROWSERLESS_API_KEY;
     if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set");
 
-    // --- 1. Get PDF first ---
+    // --- Get PDF first ---
     console.log("Requesting PDF...");
     const pdfResponse = await fetch(
       `https://production-sfo.browserless.io/pdf?token=${API_KEY}`,
@@ -84,7 +80,7 @@ router.post("/student-gen-mint", async (req, res) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          html: html, // CORRECTED: These properties must be inside an "options" object
+          html: html,
           options: {
             format: "A4",
             printBackground: true,
@@ -101,9 +97,9 @@ router.post("/student-gen-mint", async (req, res) => {
       );
     }
     const pdfBuffer = await pdfResponse.arrayBuffer();
-    console.log("✅ PDF received.");
+    console.log(" PDF received.");
 
-    // --- 2. Get PNG second ---
+    // --- Get PNG second ---
     console.log("Requesting PNG...");
     const pngResponse = await fetch(
       `https://production-sfo.browserless.io/screenshot?token=${API_KEY}`,
@@ -115,9 +111,9 @@ router.post("/student-gen-mint", async (req, res) => {
           options: {
             type: "png",
             encoding: "binary",
-            fullPage: true, // Added this from your previous logic
+            fullPage: true,
           },
-          // viewport is optional if fullPage is true, but we can keep it
+
           viewport: {
             width: 1056,
             height: 816,
@@ -135,26 +131,24 @@ router.post("/student-gen-mint", async (req, res) => {
       );
     }
     const pngBuffer = await pngResponse.arrayBuffer();
-    console.log("✅ PNG received.");
+    console.log(" PNG received.");
 
-    console.log("✅ PDF & PNG generated");
-    // --- END OF UPDATE ---
+    console.log(" PDF & PNG generated");
 
-    // --- Upload to Pinata ---
     const fileBaseName = `${studentId}-${templateId}`;
     console.log("📤 Uploading PDF...");
     const pdfUpload = await uploadBufferToPinata(
-      Buffer.from(pdfBuffer), // Convert ArrayBuffer to Buffer
+      Buffer.from(pdfBuffer),
       `${fileBaseName}.pdf`
     );
-    console.log("✅ PDF uploaded:", pdfUpload.url);
+    console.log(" PDF uploaded:", pdfUpload.url);
 
     console.log("📤 Uploading PNG...");
     const pngUpload = await uploadBufferToPinata(
-      Buffer.from(pngBuffer), // Convert ArrayBuffer to Buffer
+      Buffer.from(pngBuffer),
       `${fileBaseName}.png`
     );
-    console.log("✅ PNG uploaded:", pngUpload.url);
+    console.log(" PNG uploaded:", pngUpload.url);
 
     // --- Metadata ---
     console.log("📝 Creating NFT metadata...");
@@ -185,7 +179,7 @@ router.post("/student-gen-mint", async (req, res) => {
       `${fileBaseName}_metadata.json`
     );
     const metaUri = `ipfs://${metadataUpload.cid}`;
-    console.log("✅ Metadata uploaded:", metaUri); // Changed log to show metaUri
+    console.log(" Metadata uploaded:", metaUri);
 
     // --- Mint helper for student ---
     const mintSBT = async (wallet: string, role: string, amountTON: string) => {
@@ -207,7 +201,7 @@ router.post("/student-gen-mint", async (req, res) => {
         try {
           await sbtContract.sendDeploy(adminSender, toNano(amountTON));
           console.log(
-            `✅ ${role} wallet minted at:`,
+            ` ${role} wallet minted at:`,
             sbtContract.address.toString()
           );
           return sbtContract.address.toString();
@@ -230,7 +224,6 @@ router.post("/student-gen-mint", async (req, res) => {
       "0.05"
     );
 
-    // --- Wait 15 seconds before calling college mint ---
     console.log("⏳ Waiting 15 seconds before minting for college...");
     await new Promise((r) => setTimeout(r, 15000));
 
@@ -272,16 +265,16 @@ router.post("/student-gen-mint", async (req, res) => {
     } catch (incrementErr) {
       if (incrementErr instanceof Error) {
         console.warn(
-          "⚠️ Failed to increment certificateIssued:",
+          " Failed to increment certificateIssued:",
 
           incrementErr.message
         );
       } else {
-        console.warn("⚠️ Failed to increment certificateIssued:", incrementErr);
+        console.warn(" Failed to increment certificateIssued:", incrementErr);
       }
     }
 
-    console.log("✅ Certificate process completed successfully!");
+    console.log(" Certificate process completed successfully!");
     res.status(200).json({
       message: "Certificate minted successfully",
       metaUri,
@@ -291,7 +284,7 @@ router.post("/student-gen-mint", async (req, res) => {
       collegeContractAddress,
     });
   } catch (err: any) {
-    console.error("❌ Error in /student-gen-mint:", err);
+    console.error(" Error in /student-gen-mint:", err);
     res.status(500).json({ error: "Server error", details: err.message });
   }
 });

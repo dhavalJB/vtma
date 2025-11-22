@@ -32,15 +32,15 @@ interface CertData {
 
 export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log("🔍 Starting VishwasPatra verification...");
+    console.log(" Starting TrustLedger verification...");
 
     const form = formidable({ multiples: false });
     const [fields, files] = await form.parse(req);
 
-    let compositeHash = fields.hash?.[0]; // ✅ hash passed directly from frontend
+    let compositeHash = fields.hash?.[0]; // directly from front
     let file = (files.file as formidable.File[])?.[0];
 
-    // 🧾 If PDF is uploaded, extract its metadata
+    // PDF UP, GET META HASH
     if (file) {
       console.log("📄 Reading uploaded PDF file...");
       const pdfBytes = await fs.readFile(file.filepath);
@@ -52,7 +52,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
           const parsed = JSON.parse(keywords);
           compositeHash = parsed.compositeHash || compositeHash;
         } catch {
-          console.warn("⚠️ Could not parse PDF keywords as JSON.");
+          console.warn(" Could not parse PDF keywords as JSON.");
         }
       }
     }
@@ -60,7 +60,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     if (!compositeHash) {
       res.status(400).json({
         verified: false,
-        status: "⚠️ Invalid Request",
+        status: " Invalid Request",
         message: "No hash or PDF found for verification.",
       });
       return;
@@ -68,7 +68,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
 
     console.log("🔗 Composite Hash:", compositeHash);
 
-    // 🔍 Step 1: Find registry record
+    // 1: Find registry record
     const registrySnap = await db
       .collection("compositeRegistry")
       .doc(compositeHash)
@@ -77,7 +77,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     if (!registrySnap.exists) {
       res.json({
         verified: false,
-        status: "❌ Unregistered Certificate",
+        status: " Unregistered Certificate",
         message: "No record found for this certificate hash.",
       });
       return;
@@ -86,7 +86,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     const registryData = registrySnap.data() as RegistryData;
     console.log("📘 Registry Found:", registryData);
 
-    // 🔍 Step 2: Fetch Firestore certificate data
+    // Step 2: Fetch Firestore certificate data
     const certSnap = await db
       .collection("colleges")
       .doc(registryData.collegeId)
@@ -99,7 +99,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     if (!certSnap.exists) {
       res.json({
         verified: false,
-        status: "⚠️ Record mismatch",
+        status: " Record mismatch",
         message: "Certificate not found under registered student record.",
       });
       return;
@@ -108,7 +108,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     const certData = certSnap.data() as CertData;
     console.log("🎓 Certificate Data:", certData);
 
-    // 🧩 Step 3: Recompute hash
+    // Step 3: Recompute hash
     const fieldsForHash: Record<string, any> = {
       collegeContractAddress: certData.collegeContractAddress,
       studentContractAddress: certData.studentContractAddress,
@@ -133,18 +133,18 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     );
 
     const recomputedHash = crypto
-      .SHA256("VISHWASPATRA:v1|" + canonical)
+      .SHA256("TrustLedger:v1|" + canonical)
       .toString();
 
-    // ✅ Step 4: Compare
+    //  Step 4: Compare
     const verified = recomputedHash === compositeHash;
     console.log(
       verified
-        ? `✅ VERIFIED — Authentic document for ${registryData.certificateId}`
-        : `❌ INVALID — Hash mismatch for ${registryData.certificateId}`
+        ? ` VERIFIED — Authentic document for ${registryData.certificateId}`
+        : ` INVALID — Hash mismatch for ${registryData.certificateId}`
     );
 
-    // 🏛️ Extract logo
+    //  Extract logo
     let logoImage = "";
     try {
       const logoArray = certData.collegeDetails?.logo;
@@ -152,13 +152,13 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
         logoImage = logoArray[0]?.normalImage || "";
       }
     } catch (e) {
-      console.warn("⚠️ Could not extract college logo image.");
+      console.warn(" Could not extract college logo image.");
     }
 
-    // 🧾 Response
+    //  Response
     res.json({
       verified,
-      status: verified ? "✅ Authentic Certificate" : "❌ Verification Failed",
+      status: verified ? " Authentic Certificate" : " Verification Failed",
       message: verified
         ? "This certificate has been verified as authentic and untampered."
         : "This certificate appears to be modified or invalid.",
@@ -178,7 +178,7 @@ export const verifyPdf = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     const err = error as Error;
-    console.error("❌ Verification Error:", err.message);
+    console.error(" Verification Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 };

@@ -22,7 +22,7 @@ router.post("/generate-voic-sbt", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    // 🧩 Generate VishwasPatra certificate + VOIC + NFT metadata
+    // enerate TrustLedger certificate + VOIC + NFT metadata
     const result = await generateVishwasPatra({
       institutionName: collegeName,
       registrationId: regId,
@@ -30,14 +30,14 @@ router.post("/generate-voic-sbt", async (req, res) => {
       mockId,
     });
 
-    console.log("\n✅ Certificate is ready for Verification:", result);
+    console.log("\n Certificate is ready for Verification:", result);
 
     return res.status(200).json({
-      message: "VishwasPatra (SBT) generated successfully",
+      message: "TrustLedger (SBT) generated successfully",
       data: result,
     });
   } catch (error: any) {
-    console.error("❌ Error in /generate-sbt:", error);
+    console.error(" Error in /generate-sbt:", error);
     res.status(500).json({
       error: "Internal Server Error",
       details: error.message,
@@ -54,7 +54,7 @@ router.post("/mint-voic-sbt", async (req, res) => {
     console.log("Wallet ID:", walletId);
     console.log("Mock ID:", mockID);
 
-    // --- Input Validation ---
+    // --- Input Valiation ---
     if (!metaUri || !walletId || !mockID) {
       return res
         .status(400)
@@ -66,7 +66,7 @@ router.post("/mint-voic-sbt", async (req, res) => {
     try {
       ownerAddress = Address.parse(walletId);
     } catch (e) {
-      console.warn("❌ Invalid walletId format:", walletId);
+      console.warn(" Invalid walletId format:", walletId);
       return res.status(400).json({ error: "Invalid walletId format." });
     }
 
@@ -90,7 +90,7 @@ router.post("/mint-voic-sbt", async (req, res) => {
     await sbtContract.sendDeploy(adminSender, toNano("0.05"));
     const deployedAddress = sbtContract.address.toString();
 
-    console.log(`✅ Deploy message sent. SBT Address: ${deployedAddress}`);
+    console.log(` Deploy message sent. SBT Address: ${deployedAddress}`);
 
     // --- Update Firestore ---
     const collegeDocRef = db.collection("colleges").doc(mockID);
@@ -106,7 +106,7 @@ router.post("/mint-voic-sbt", async (req, res) => {
         },
         { merge: true }
       );
-      console.log(`✅ Stored sbtAddress (${deployedAddress}) in Firestore.`);
+      console.log(` Stored sbtAddress (${deployedAddress}) in Firestore.`);
     } else {
       await collegeDocRef.set({
         sbtAddress: deployedAddress,
@@ -122,18 +122,18 @@ router.post("/mint-voic-sbt", async (req, res) => {
     const verifySnap = await collegeDocRef.get();
     if (verifySnap.exists) {
       const verifyData = verifySnap.data();
-      console.log("🧾 Firestore document after update:", verifyData);
+      console.log(" Firestore document after update:", verifyData);
 
       if (verifyData && verifyData.deployAddress === deployedAddress) {
-        console.log("✅ Firestore write verified successfully!");
+        console.log(" Firestore write verified successfully!");
       } else {
         console.warn(
-          "⚠️ Firestore write mismatch or deployAddress missing:",
+          " Firestore write mismatch or deployAddress missing:",
           verifyData?.deployAddress
         );
       }
     } else {
-      console.error("❌ Firestore verification failed — document not found!");
+      console.error(" Firestore verification failed — document not found!");
     }
 
     // --- Respond to frontend ---
@@ -145,13 +145,13 @@ router.post("/mint-voic-sbt", async (req, res) => {
     });
   } catch (error) {
     if (error instanceof Error) {
-      console.error("❌ Error in /mint-voic-sbt:", error.message);
+      console.error(" Error in /mint-voic-sbt:", error.message);
       res.status(500).json({
         error: "Internal Server Error",
         details: error.message,
       });
     } else {
-      console.error("❌ Unknown error in /mint-voic-sbt:", error);
+      console.error(" Unknown error in /mint-voic-sbt:", error);
       res.status(500).json({
         error: "Unknown Server Error",
         details: String(error),
@@ -175,7 +175,7 @@ router.get("/verify-sbt", async (req, res) => {
     const hasSBT = await verifySBTonTON(wallet, college, deployAddress);
     res.json({ hasSBT });
   } catch (err) {
-    console.error("❌ SBT verification failed:", err);
+    console.error(" SBT verification failed:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });

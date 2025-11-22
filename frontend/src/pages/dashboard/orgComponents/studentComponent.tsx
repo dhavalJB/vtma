@@ -20,8 +20,8 @@ import QRCode from "qrcode";
 
 // ---------- Student type ----------
 interface Student {
-  id: string; // doc id
-  studentId: string; // same as id (for clarity)
+  id: string;
+  studentId: string;
   name: string;
   email: string;
   program: string;
@@ -255,7 +255,6 @@ export default function StudentRegistrar() {
   };
 
   const validateCsvRow = (r: CsvRow) => {
-    // required columns: studentId,name,email,program,status,year (year can be numeric)
     if (
       !r.studentId ||
       !r.name ||
@@ -265,7 +264,6 @@ export default function StudentRegistrar() {
       !r.year
     )
       return false;
-    // basic email check
     if (!/\S+@\S+\.\S+/.test(r.email)) return false;
     if (Number.isNaN(Number(r.year))) return false;
     return true;
@@ -274,14 +272,12 @@ export default function StudentRegistrar() {
   // ---------- Single student add ----------
   const handleAddSingleStudent = async () => {
     if (!mockID) return alert("Missing college id");
-    // per your choice 1A: studentId required
     if (!singleForm.studentId || singleForm.studentId.trim() === "") {
       return alert("studentId is required");
     }
     const sid = String(singleForm.studentId).trim();
     const docRef = doc(db, "colleges", mockID, "students", sid);
     try {
-      // check exists
       const existing = await getDoc(docRef);
       if (existing.exists()) {
         const ok = confirm(
@@ -306,7 +302,6 @@ export default function StudentRegistrar() {
       };
 
       await setDoc(docRef, payload);
-      // refresh local list
       setStudents((prev) => [{ ...payload } as Student, ...prev]);
       resetAddForm();
       setShowAddModal(false);
@@ -317,7 +312,6 @@ export default function StudentRegistrar() {
     }
   };
 
-  // ---------- CSV parsing (no external deps) ----------
   const handleCsvFile = (file: File | null) => {
     if (!file) return;
     setCsvFileName(file.name);
@@ -331,7 +325,6 @@ export default function StudentRegistrar() {
         return;
       }
 
-      // first row header
       const header = rows[0].split(",").map((h) => h.trim().toLowerCase());
       const required = [
         "studentid",
@@ -359,7 +352,6 @@ export default function StudentRegistrar() {
         parsed.push(rowObj);
       }
 
-      // validate and detect duplicates against existing students
       const existIds = new Set(students.map((s) => s.id));
       let invalid = 0;
       let dup = 0;
@@ -367,7 +359,6 @@ export default function StudentRegistrar() {
         const valid = validateCsvRow(r);
         if (!valid) invalid++;
         if (r.studentId && existIds.has(String(r.studentId))) dup++;
-        // initialize per-row decision to "add" for valid non-duplicate, else "ask"
         if (existIds.has(String(r.studentId))) {
           perRowDecision[idx] = "ask";
         } else {
@@ -383,7 +374,6 @@ export default function StudentRegistrar() {
     reader.readAsText(file);
   };
 
-  // ---------- CSV Import action ----------
   const handleCsvImportConfirm = async () => {
     if (csvInvalidCount > 0) {
       const ok = confirm(
@@ -394,14 +384,11 @@ export default function StudentRegistrar() {
 
     if (!mockID) return alert("Missing college id");
 
-    // decide global duplicate behavior
-    let globalMode = duplicateMode; // "ask" | "overwrite_all" | "skip_all"
+    let globalMode = duplicateMode;
 
-    // if ask mode, we will consult perRowDecision; if a per-row is still "ask", default to "skip"
     const batch = writeBatch(db);
     const ops: Array<Promise<void>> = [];
 
-    // We'll perform row-by-row upserts (setDoc)
     for (let i = 0; i < csvRows.length; i++) {
       const r = csvRows[i];
       const line = r._line || i + 2;
@@ -411,8 +398,6 @@ export default function StudentRegistrar() {
       const sid = String(r.studentId).trim();
       const docRef = doc(db, "colleges", mockID, "students", sid);
 
-      // check existing
-      // Note: to reduce reads, we can check local students list
       const existsLocally = students.find((s) => s.id === sid) !== undefined;
 
       if (existsLocally) {
@@ -432,10 +417,8 @@ export default function StudentRegistrar() {
             courseName: (r.courseName || "").trim(),
             walletId: (r.walletId || "").trim(),
           };
-          // push write
           ops.push(setDoc(docRef, payload).then(() => {}));
         } else {
-          // ask mode
           const decision = perRowDecision[i];
           if (decision === "skip") {
             continue;
@@ -454,12 +437,10 @@ export default function StudentRegistrar() {
             };
             ops.push(setDoc(docRef, payload).then(() => {}));
           } else {
-            // default skip
             continue;
           }
         }
       } else {
-        // not exists -> create
         const payload = {
           studentId: sid,
           id: sid,
@@ -476,12 +457,10 @@ export default function StudentRegistrar() {
       }
     }
 
-    // execute all ops sequentially (to keep simple error handling)
     try {
       for (const p of ops) {
         await p;
       }
-      // Refresh students list: re-fetch
       const studentsCol = collection(db, "colleges", mockID, "students");
       const studentSnapshots = await getDocs(studentsCol);
       const studentList: Student[] = studentSnapshots.docs.map((d) => {
@@ -516,12 +495,6 @@ export default function StudentRegistrar() {
     setPerRowDecision((prev) => ({ ...prev, [index]: decision }));
   };
 
-  // ---------- The rest of your certificate code remains unchanged (copied from your previous file) ----------
-  // For brevity I won't duplicate the entire certificate generation code here,
-  // but the original functions (handleViewCertificates, handleDownloadCertificate,
-  // handleTemplateSelect, sendCertificate) remain the same and continue to work.
-
-  // For the sake of completeness, minimal stubs are provided if you rely on them in UI:
   const handleViewCertificates = async (student: Student) => {
     try {
       console.log("🟢 Opening certificates for:", student.name, student.id);
@@ -549,7 +522,7 @@ export default function StudentRegistrar() {
         fileURL: doc.data().pdfUrl || doc.data().fileURL || "",
       }));
 
-      console.log("✅ Certificates found:", certList);
+      console.log(" Certificates found:", certList);
 
       setCertificates(certList);
       setSelectedStudent(student);
@@ -565,7 +538,7 @@ export default function StudentRegistrar() {
     certId: string
   ) => {
     try {
-      // 1️⃣ Fetch certificate document
+      //  Fetch certificate document
       const certDocRef = doc(
         db,
         "colleges",
@@ -582,7 +555,6 @@ export default function StudentRegistrar() {
       }
       const certData = certSnap.data();
 
-      // 2️⃣ Prepare fields for hashing (canonical core)
       const fields = {
         collegeContractAddress: certData.collegeContractAddress,
         studentContractAddress: certData.studentContractAddress,
@@ -597,7 +569,6 @@ export default function StudentRegistrar() {
         mintedAt: certData.mintedAt,
       };
 
-      // 3️⃣ Create canonical string and hash
       const canonical = JSON.stringify(
         Object.keys(fields)
           .sort()
@@ -608,12 +579,11 @@ export default function StudentRegistrar() {
       );
 
       const compositeHash = crypto
-        .SHA256("VISHWASPATRA:v1|" + canonical)
+        .SHA256("TrustLedger:v1|" + canonical)
         .toString();
 
-      console.log("🧩 Composite Hash:", compositeHash);
+      console.log("TrustLedger Composite Hash:", compositeHash);
 
-      // 4️⃣ Check and insert into composite registry
       const registryRef = doc(db, "compositeRegistry", compositeHash);
       const registrySnap = await getDoc(registryRef);
 
@@ -627,20 +597,20 @@ export default function StudentRegistrar() {
         };
 
         await setDoc(registryRef, registryEntry);
-        console.log("✅ Added to composite registry:", compositeHash);
+        console.log(" Added to composite registry:", compositeHash);
       }
 
-      // 5️⃣ Fetch original PDF
+      // 5️Fetch original PDF
       const pdfBytes = await fetch(certData.pdfUrl).then((res) =>
         res.arrayBuffer()
       );
       const pdfDoc = await PDFDocument.load(pdfBytes);
 
-      // 6️⃣ Add VishwasPatra metadata
+      // 6 Add TrustLedger metadata
       pdfDoc.setTitle("Blockchain Verified Certificate");
-      pdfDoc.setAuthor(certData.collegeDetails?.fullName || "VishwasPatra");
-      pdfDoc.setSubject("VishwasPatra Authentic Certificate");
-      pdfDoc.setProducer("VishwasPatra DApp");
+      pdfDoc.setAuthor(certData.collegeDetails?.fullName || "TrustLedger");
+      pdfDoc.setSubject("TrustLedger Authentic Certificate");
+      pdfDoc.setProducer("TrustLedger DApp");
       pdfDoc.setCreator("Meta Realm | TON + IPFS");
       pdfDoc.setKeywords([
         JSON.stringify({
@@ -649,7 +619,7 @@ export default function StudentRegistrar() {
         }),
       ]);
 
-      // 7️⃣ Generate QR code for verification link
+      // Generate QR code for verification link
       const verifyUrl = `${FrontendURL}/verifier?verify-hash=${compositeHash}`;
       const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
         margin: 1,
@@ -657,7 +627,7 @@ export default function StudentRegistrar() {
       });
       const qrImage = await pdfDoc.embedPng(qrDataUrl);
 
-      // 8️⃣ Add QR code + text on last page
+      // 8️Add QR code + text on last page
       const pages = pdfDoc.getPages();
       const lastPage = pages[pages.length - 1];
       const { width, height } = lastPage.getSize();
@@ -672,9 +642,8 @@ export default function StudentRegistrar() {
         height: qrSize,
       });
 
-      // Add "Verify this document" text under QR
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      lastPage.drawText("Verify at VishwasPatra", {
+      lastPage.drawText("Verify at TrustLedger", {
         x: width - qrSize - margin - 10,
         y: margin - 10,
         size: 10,
@@ -682,7 +651,7 @@ export default function StudentRegistrar() {
         color: rgb(0.1, 0.1, 0.1),
       });
 
-      // 9️⃣ Save & download updated PDF
+      // 9 Save & download updated PDF
       const updatedPdfBytes = await pdfDoc.save();
       const blob = new Blob([new Uint8Array(updatedPdfBytes)], {
         type: "application/pdf",
@@ -695,15 +664,15 @@ export default function StudentRegistrar() {
       }_${studentId}.pdf`;
       link.click();
 
-      console.log("✅ Certificate downloaded with embedded QR code and hash.");
+      console.log(" Certificate downloaded with embedded QR code and hash.");
     } catch (err) {
-      console.error("❌ Error during certificate generation:", err);
+      console.error(" Error during certificate generation:", err);
       alert("Failed to generate secure certificate with QR.");
     }
   };
 
   const handleTemplateSelect = async (template: any) => {
-    if (!selectedStudent) return; // Ensure student is selected
+    if (!selectedStudent) return;
 
     try {
       setLoadingPreview(true);
@@ -711,7 +680,6 @@ export default function StudentRegistrar() {
 
       const fullHTML = await fetchTemplateContentFromFirestore(template);
 
-      // Use let so we can reassign
       let personalizedHTML = fullHTML
         .replace(/{{Student Name}}/g, selectedStudent.name)
         .replace(
@@ -729,10 +697,8 @@ export default function StudentRegistrar() {
           new Date().toLocaleString("default", { month: "long" })
         )
         .replace(/{{Year}}/g, new Date().getFullYear().toString())
-        // College Logo URL
         .replace(/{{CollegeLogoURL}}/g, collegeDetails.logoURL || "");
 
-      // Make logo clickable
       const nftLink = `https://testnet.tonviewer.com/${collegeDetails.logoContractAddress}?section=nft`;
       personalizedHTML = personalizedHTML.replace(
         /<img class="logo" src="(.*?)"\s*\/?>/,
@@ -793,10 +759,8 @@ export default function StudentRegistrar() {
     }
   };
 
-  // ---------- Render ----------
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 via-white to-blue-50 font-sans p-4">
-      {/* Header */}
       <header className="bg-white shadow-md rounded-2xl p-4 mb-5 flex items-center gap-3 sticky top-0 z-20">
         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-blue-400 flex items-center justify-center shadow">
           <Building2 className="w-5 h-5 text-white" />
@@ -811,7 +775,6 @@ export default function StudentRegistrar() {
         </div>
       </header>
 
-      {/* Filters */}
       <div className="bg-white shadow-sm rounded-2xl p-4 border border-gray-100 mb-5">
         <div className="relative mb-3">
           <Search className="absolute top-2.5 left-3 text-gray-400 w-4 h-4" />
@@ -862,7 +825,6 @@ export default function StudentRegistrar() {
         </div>
       </div>
 
-      {/* Student List */}
       <div className="space-y-4">
         {filteredStudents.length === 0 ? (
           <div className="text-center text-gray-400 text-sm py-10">
@@ -916,7 +878,6 @@ export default function StudentRegistrar() {
         )}
       </div>
 
-      {/* Floating Add Button */}
       <button
         onClick={() => setShowAddModal(true)}
         title="Add student"
@@ -925,7 +886,6 @@ export default function StudentRegistrar() {
         <Plus className="w-4 h-4" /> Add Student
       </button>
 
-      {/* ---------- Add Modal ---------- */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-3">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-5 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -942,7 +902,6 @@ export default function StudentRegistrar() {
               </button>
             </div>
 
-            {/* Single add form */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               <input
                 placeholder="studentId (required)"
@@ -1029,7 +988,6 @@ export default function StudentRegistrar() {
                 Add Student
               </button>
 
-              {/* CSV upload */}
               <label className="bg-white border px-3 py-2 rounded-lg cursor-pointer inline-flex items-center gap-2">
                 <FileText className="w-4 h-4" /> Upload CSV
                 <input
@@ -1047,7 +1005,6 @@ export default function StudentRegistrar() {
               )}
             </div>
 
-            {/* CSV Preview controls */}
             {csvPreviewOpen && (
               <div className="mt-4 border rounded-lg p-3 bg-gray-50">
                 <div className="flex items-center justify-between mb-2">

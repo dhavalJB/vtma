@@ -27,16 +27,14 @@ app.use("/api", logoUploadRoute);
 app.use("/api", studentsRoute);
 app.use("/verify", verificationRoute);
 
-// --- Initialize TON client first, then start server ---
 (async () => {
   try {
     await initializeTon();
-    console.log("✅ TON client initialized");
+    console.log(" TON client initialized");
 
     app.listen(PORT, () => {
       console.log(`⚡ Server running on port ${PORT}`);
 
-      // --- Keep-alive Ping Every 40 Seconds ---
       const PING_URL = "https://vtma.onrender.com";
       setInterval(async () => {
         try {
@@ -44,15 +42,15 @@ app.use("/verify", verificationRoute);
           console.log(`📡 Pinged ${PING_URL} — status: ${res.status}`);
         } catch (err: unknown) {
           if (err instanceof Error) {
-            console.error("⚠️ Ping failed:", err.message);
+            console.error(" Ping failed:", err.message);
           } else {
-            console.error("⚠️ Ping failed:", err);
+            console.error(" Ping failed:", err);
           }
         }
       }, 40000);
     });
   } catch (err) {
-    console.error("❌ Failed to initialize TON client:", err);
+    console.error(" Failed to initialize TON client:", err);
     process.exit(1);
   }
 })();

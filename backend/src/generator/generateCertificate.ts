@@ -8,13 +8,13 @@ import { File } from "buffer";
 
 dotenv.config();
 
-// ========================== ⚙️ Pinata Setup ==========================
+// ========================== Pinata Setup ==========================
 const pinata = new PinataSDK({
   pinataJwt: process.env.PINATA_JWT!,
   pinataGateway: process.env.PINATA_GATEWAY!,
 });
 
-// ========================== 🧩 Helpers ==========================
+// ========================== Helpers ==========================
 function normalizeGateway(gateway?: string) {
   return (gateway ?? "https://gateway.pinata.cloud").replace(
     /^https?:\/\//,
@@ -23,13 +23,12 @@ function normalizeGateway(gateway?: string) {
 }
 
 export async function uploadBufferToPinata(buffer: Buffer, fileName: string) {
-  // 1. Determine MIME type
   const mimeType = fileName.endsWith(".json")
     ? "application/json"
     : "image/png";
 
   const file = new File([buffer], fileName, { type: mimeType });
-  const upload = await pinata.upload.public.file(file as any); // 4. Construct the gateway URL
+  const upload = await pinata.upload.public.file(file as any);
 
   const gateway = process.env.PINATA_GATEWAY || "gateway.pinata.cloud";
   const url = `https://${normalizeGateway(gateway)}/ipfs/${upload.cid}`;
@@ -38,7 +37,7 @@ export async function uploadBufferToPinata(buffer: Buffer, fileName: string) {
   return { url, cid: upload.cid };
 }
 
-// ========================== 🏫 Certificate Generator ==========================
+// ========================== Certificate Generator ==========================
 export async function generateCertificate({
   institutionName,
   registrationId,
@@ -49,16 +48,16 @@ export async function generateCertificate({
   verifiedBy: string;
 }) {
   const certTemplatePath = path.resolve("./src/templates/certificate.html");
-  let html = await fs.promises.readFile(certTemplatePath, "utf8"); // Use fs.promises
+  let html = await fs.promises.readFile(certTemplatePath, "utf8");
 
   html = html
     .replace(/{{INSTITUTION_NAME}}/g, institutionName)
     .replace(/{{REGISTRATION_ID}}/g, registrationId)
     .replace(/{{VERIFIED_BY}}/g, verifiedBy)
-    .replace(/{{YEAR}}/g, new Date().getFullYear().toString()); // --- UPDATED BROWSERLESS LOGIC ---
+    .replace(/{{YEAR}}/g, new Date().getFullYear().toString());
 
   const API_KEY = process.env.BROWSERLESS_API_KEY;
-  if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set"); // UPDATED URL: Changed from chrome.browserless.io
+  if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set");
 
   const response = await fetch(
     `https://production-sfo.browserless.io/screenshot?token=${API_KEY}`,
@@ -87,15 +86,15 @@ export async function generateCertificate({
       `Browserless /screenshot failed: ${response.status} ${errorText}`
     );
   }
-  const buffer = await response.arrayBuffer(); // --- END OF UPDATE ---
+  const buffer = await response.arrayBuffer();
   const upload = await uploadBufferToPinata(
-    Buffer.from(buffer), // Convert ArrayBuffer to Buffer
+    Buffer.from(buffer), // Converting ArrayBuffer to Buffer
     `${registrationId}_certificate.png`
   );
   return { certURL: upload.url, certCID: upload.cid };
 }
 
-// ========================== 🎫 VOIC Card Generator ==========================
+// ========================== VOIC Card Generator ==========================
 async function generateVOIC({
   college,
   certificateURL,
@@ -107,15 +106,15 @@ async function generateVOIC({
 }) {
   const qrCode = await QRCode.toDataURL(certificateURL);
   const voicTemplatePath = path.resolve("./src/templates/voic.html");
-  let html = await fs.promises.readFile(voicTemplatePath, "utf8"); // Use fs.promises
+  let html = await fs.promises.readFile(voicTemplatePath, "utf8");
 
   html = html
     .replace(/{{COLLEGE_NAME}}/g, college)
     .replace(/{{CERTIFICATE_URL}}/g, certificateURL)
-    .replace(/{{QRCODE}}/g, qrCode); // --- UPDATED BROWSERLESS LOGIC ---
+    .replace(/{{QRCODE}}/g, qrCode);
 
   const API_KEY = process.env.BROWSERLESS_API_KEY;
-  if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set"); // UPDATED URL: Changed from chrome.browserless.io
+  if (!API_KEY) throw new Error("BROWSERLESS_API_KEY is not set");
 
   const response = await fetch(
     `https://production-sfo.browserless.io/screenshot?token=${API_KEY}`,
@@ -127,7 +126,7 @@ async function generateVOIC({
         options: {
           type: "png",
           encoding: "binary",
-        }, // CORRECTED: viewport is a top-level property, NOT inside options
+        },
         viewport: {
           width: 700,
           height: 700,
@@ -144,15 +143,15 @@ async function generateVOIC({
       `Browserless /screenshot failed: ${response.status} ${errorText}`
     );
   }
-  const buffer = await response.arrayBuffer(); // --- END OF UPDATE ---
+  const buffer = await response.arrayBuffer();
   const upload = await uploadBufferToPinata(
-    Buffer.from(buffer), // Convert ArrayBuffer to Buffer
+    Buffer.from(buffer),
     `${registrationId}_voic.png`
   );
   return { voicURL: upload.url, voicCID: upload.cid, qrCode };
 }
 
-// ========================== 🚀 MAIN FLOW ==========================
+// ========================== MAIN FLOW ==========================
 export async function generateVishwasPatra({
   institutionName,
   registrationId,
@@ -164,7 +163,6 @@ export async function generateVishwasPatra({
   verifiedBy: string;
   mockId: string;
 }) {
-  // 1️⃣ Generate both assets
   const { certURL, certCID } = await generateCertificate({
     institutionName,
     registrationId,
@@ -175,11 +173,11 @@ export async function generateVishwasPatra({
     college: institutionName,
     certificateURL: certURL,
     registrationId,
-  }); // 2️⃣ Prepare NFT metadata
+  });
 
   const nftMetadata = {
-    name: `VishwasPatra – ${institutionName}`,
-    description: `Officially verified VishwasPatra certificate issued to ${institutionName} by ${verifiedBy}.`,
+    name: `TrustLedger – ${institutionName}`,
+    description: `Officially verified TrustLedger certificate issued to ${institutionName} by ${verifiedBy}.`,
     image: `ipfs://${voicCID}`,
     external_url: `https://${normalizeGateway(
       pinata.config?.pinataGateway
@@ -194,7 +192,7 @@ export async function generateVishwasPatra({
     properties: {
       certificate: { ipfs: `ipfs://${certCID}`, url: certURL },
       voic: { ipfs: `ipfs://${voicCID}`, url: voicURL },
-      metadata_creator: "VishwasPatra MiniApp",
+      metadata_creator: "TrustLedger MiniApp",
       network: "TON Testnet",
     },
   };
@@ -203,7 +201,7 @@ export async function generateVishwasPatra({
   const metadataUpload = await uploadBufferToPinata(
     metadataBuffer,
     `${registrationId}_metadata.json`
-  ); // 3️⃣ Store to Firestore
+  );
 
   const docData = {
     institutionName,
@@ -211,7 +209,7 @@ export async function generateVishwasPatra({
     verifiedBy,
     metadata: `ipfs://${metadataUpload.cid}`,
     certificate: `ipfs://${certCID}`,
-    voic: `ipfs://${voicCID}`, // <-- FIXED TYPO
+    voic: `ipfs://${voicCID}`,
     metadata_json: nftMetadata,
     issuedAt: new Date().toISOString(),
     network: "TON Testnet",
@@ -232,7 +230,7 @@ export async function generateVishwasPatra({
       .set(docData),
   ]);
 
-  console.log("\n✅ VishwasPatra NFT Created Successfully");
+  console.log("\n TrustLedger NFT Created Successfully");
   console.log("📦 Metadata:", `ipfs://${metadataUpload.cid}`);
   console.log("📜 Certificate:", certURL);
   console.log("🪪 VOIC:", voicURL);

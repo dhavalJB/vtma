@@ -25,7 +25,7 @@ interface SessionData {
 const slides = [
   {
     id: 1,
-    title: "Welcome to VishwasPatra",
+    title: "Welcome to TrustLedger",
     subtitle: "The decentralized trust network",
     subtext: "TON-powered verification",
     icon: <ShieldCheck className="w-16 h-16 text-indigo-600" />,
@@ -82,7 +82,6 @@ export default function Onboarding() {
     const tg = (window as any).Telegram?.WebApp;
 
     if (tg) {
-      // call again here, just in case
       tg.ready();
 
       const idInterval = setInterval(() => {
@@ -97,7 +96,6 @@ export default function Onboarding() {
       return;
     }
 
-    // DEV fallback
     if (location.hostname === "localhost") {
       setTelegramUser({
         id: "mock_" + Math.floor(100000 + Math.random() * 999999),
@@ -115,7 +113,6 @@ export default function Onboarding() {
   // STEP 2: Check existing user OR create mock/college
   // -----------------------------------
   const checkExistingUser = async () => {
-    // If local mock mode (dev)
     if (!telegramUser) {
       alert("Please open inside Telegram");
       return;
@@ -123,9 +120,7 @@ export default function Onboarding() {
 
     const telegramId = String(telegramUser.id);
 
-    // MOCK flow on localhost
     if (telegramUser.isMock) {
-      // create a predictable mock college id (replaceable)
       const mockCollegeId = "college_001";
 
       const collegeRef = doc(db, "colleges", mockCollegeId);
@@ -139,7 +134,6 @@ export default function Onboarding() {
         });
       }
 
-      // session for mock admin (no employee doc needed)
       const mockUserData = {
         telegramId,
         role: "admin",
@@ -164,7 +158,6 @@ export default function Onboarding() {
       return;
     }
 
-    // PRODUCTION/TG flow: search every college's employee doc for telegramId
     const collegesSnap = await getDocs(collection(db, "colleges"));
     for (const collegeDoc of collegesSnap.docs) {
       const collegeId = collegeDoc.id;
@@ -190,7 +183,6 @@ export default function Onboarding() {
       }
     }
 
-    // FIRST-TIME TELEGRAM USER -> show registration/college creation form
     setShowCollegeForm(true);
   };
 
@@ -234,9 +226,6 @@ export default function Onboarding() {
       createdAt: Date.now(),
       isMock: false,
     });
-
-    // ❌ REMOVE THIS — INVALID FIRESTORE PATH
-    // await setDoc(doc(db, "colleges", collegeId, "regId"), { regId });
 
     // -----------------------------------
     // 2. Create Admin Employee (telegramId = doc id)

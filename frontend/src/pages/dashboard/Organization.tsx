@@ -37,7 +37,7 @@ export default function Organization() {
   const [tonConnectUI] = useTonConnectUI();
   const [loading, setLoading] = useState(false);
   const [nftExists, setNftExists] = useState(false);
-  const [nftMetadata, setNftMetadata] = useState<any>(null); // or a proper type if you know the structure
+  const [nftMetadata, setNftMetadata] = useState<any>(null);
   const [hasSBT, setHasSBT] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [org, setOrg] = useState<any>(session?.userData || {});
@@ -75,7 +75,6 @@ export default function Organization() {
     },
   ];
 
-  // 🔹 On wallet connect, link with Firestore
   useEffect(() => {
     if (wallet?.account?.address) {
       handleWalletConnect(wallet.account.address);
@@ -93,19 +92,17 @@ export default function Organization() {
       hasFetched = true;
 
       try {
-        // 1️⃣ Fetch college doc
         const collegeRef = doc(db, "colleges", id);
         const collegeSnap = await getDoc(collegeRef);
 
         if (!collegeSnap.exists()) {
-          console.warn("⚠️ College not found:", id);
+          console.warn(" College not found:", id);
           return;
         }
 
         const collegeData = collegeSnap.data();
         setOrg((prev: any) => ({ ...prev, ...collegeData }));
 
-        // 2️⃣ Fetch NFT metadata subcollection
         const nftCollectionRef = collection(db, "colleges", id, "nftMetaData");
         const nftSnapshot = await getDocs(nftCollectionRef);
 
@@ -115,17 +112,16 @@ export default function Organization() {
             ...doc.data(),
           }));
 
-          console.log("✅ All NFT metadata:", allNFTs);
+          console.log(" All NFT metadata:", allNFTs);
           setNftExists(true);
           setNftMetadata(allNFTs);
 
-          // 3️⃣ Trigger SBT verification after short delay
           setTimeout(() => {
             console.log("🚀 Triggering SBT verification...");
             verifySBT(id);
           }, 2500);
         } else {
-          console.log("❌ No NFT metadata found for", id);
+          console.log(" No NFT metadata found for", id);
           setNftExists(false);
           setNftMetadata(null);
         }
@@ -134,27 +130,24 @@ export default function Organization() {
       }
     }
 
-    checkNFTandThenSBT(mockID); // ✅ Pass mockID explicitly
+    checkNFTandThenSBT(mockID);
   }, [session?.mockID]);
 
-  // ✅ Self-contained verification function
   async function verifySBT(mockID: string) {
     try {
       if (!mockID) {
-        console.warn("⚠️ Missing mockID for SBT verification");
+        console.warn(" Missing mockID for SBT verification");
         return;
       }
 
-      console.log(
-        `🔍 Fetching org data for verification (mockID: ${mockID})...`
-      );
+      console.log(` Fetching org data for verification (mockID: ${mockID})...`);
 
-      // 🔹 Step 1: Get college document
+      //Step 1: Get college document
       const collegeRef = doc(db, "colleges", mockID);
       const collegeSnap = await getDoc(collegeRef);
 
       if (!collegeSnap.exists()) {
-        console.warn(`⚠️ No college found for mockID: ${mockID}`);
+        console.warn(` No college found for mockID: ${mockID}`);
         return;
       }
 
@@ -169,9 +162,9 @@ export default function Organization() {
         deployAddr,
       });
 
-      // 🔍 Validate required data
+      // Validate required data
       if (!walletId || !collegeName || !deployAddr) {
-        console.warn("⚠️ Missing required fields for verification:", {
+        console.warn(" Missing required fields for verification:", {
           walletId,
           collegeName,
           deployAddr,
@@ -179,48 +172,48 @@ export default function Organization() {
         return;
       }
 
-      // 🔗 Build verification URL
+      // Build verification URL
       const endpoint = `${backendUrl}/api/verify-sbt?wallet=${encodeURIComponent(
         walletId
       )}&college=${encodeURIComponent(
         collegeName
       )}&deployAddress=${encodeURIComponent(deployAddr)}`;
 
-      // 🚀 Step 2: Call backend
+      // Step 2: Call backend
       const res = await fetch(endpoint);
       const data = await res.json();
 
       if (!res.ok) {
-        console.error("❌ Backend verification error:", data);
+        console.error(" Backend verification error:", data);
         alert(`Verification failed: ${data.error || "Unknown error"}`);
         return;
       }
 
-      // ✅ Step 3: Handle success
-      console.log("✅ Verification result:", data);
+      // Step 3: Handle success
+      console.log(" Verification result:", data);
       if (typeof data.hasSBT === "boolean") {
         setHasSBT(data.hasSBT);
         if (data.hasSBT) {
-          console.log("🎯 SBT exists on-chain — verification successful!");
+          console.log("SBT exists on-chain — verification successful!");
         } else {
-          console.warn("⚠️ No SBT found for this organization.");
+          console.warn(" No SBT found for this organization.");
         }
       } else {
-        console.warn("⚠️ Unexpected response structure:", data);
+        console.warn(" Unexpected response structure:", data);
       }
     } catch (err) {
-      console.error("❌ Error verifying SBT:", err);
+      console.error(" Error verifying SBT:", err);
       alert("Verification failed. Please check your backend connection.");
     }
   }
 
   async function handleWalletConnect(walletAddress: string) {
     try {
-      const collegeId = session?.mockID; // dynamic later
+      const collegeId = session?.mockID;
       const shortName = org.shortName || "COLLEGE";
 
       if (!collegeId) {
-        console.error("❌ College ID missing — cannot link wallet");
+        console.error(" College ID missing — cannot link wallet");
         return;
       }
 
@@ -229,7 +222,7 @@ export default function Organization() {
 
       let regId: string;
 
-      // --- 1️⃣ Update college document ---
+      // ---  Update college document ---
       if (collegeSnap.exists()) {
         const data = collegeSnap.data();
 
@@ -241,17 +234,17 @@ export default function Organization() {
             regId,
             updatedAt: new Date().toISOString(),
           });
-          console.log("✅ College wallet linked:", regId);
+          console.log(" College wallet linked:", regId);
         } else {
           regId = data.regId;
           console.log("ℹ️ College already linked:", regId);
         }
       } else {
-        console.warn("⚠️ College not found:", collegeId);
+        console.warn(" College not found:", collegeId);
         return;
       }
 
-      // --- 2️⃣ Add to registrar collection ---
+      // ---  Add to registrar collection ---
       const registrarRef = doc(db, "collegeRegistrar", regId);
       const registrarSnap = await getDoc(registrarRef);
 
@@ -261,41 +254,41 @@ export default function Organization() {
           regId,
           createdAt: new Date().toISOString(),
         });
-        console.log("✅ Added to collegeRegistrar:", regId);
+        console.log(" Added to collegeRegistrar:", regId);
       } else {
         console.log("ℹ️ Registrar entry already exists:", regId);
       }
     } catch (err) {
-      console.error("❌ Wallet connection failed:", err);
+      console.error(" Wallet connection failed:", err);
     }
   }
 
   const handleVoicGeneration = async () => {
     const mockID = session?.mockID || org?.mockID;
     if (!mockID || !org?.walletId) {
-      console.log("❌ Missing required data before send:", {
+      console.log(" Missing required data before send:", {
         mockID,
         walletId: org?.walletId,
       });
       return;
     }
 
-    // 🔍 Double-check backend (Firestore)
+    //  Double-check backend (Firestore)
     try {
       const docRef = doc(db, "colleges", mockID, "nftMetaData", "latest");
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        console.log("❌ VOIC (SBT) already exists (backend check)");
+        console.log(" VOIC (SBT) already exists (backend check)");
         setNftExists(true);
         return;
       }
     } catch (err) {
-      console.error("❌ Error checking NFT metadata before generation:", err);
+      console.error(" Error checking NFT metadata before generation:", err);
       return;
     }
 
-    // ✅ Proceed
+    //  Proceed
     try {
       setLoading(true);
 
@@ -306,8 +299,8 @@ export default function Organization() {
         mockId: mockID,
       };
 
-      // 🟢 Log before sending
-      console.log("📤 Payload to be sent:", JSON.stringify(payload, null, 2));
+      // Log before sending
+      console.log("Payload to be sent:", JSON.stringify(payload, null, 2));
 
       const res = await fetch(`${backendUrl}/api/generate-voic-sbt`, {
         method: "POST",
@@ -316,16 +309,16 @@ export default function Organization() {
       });
 
       const data = await res.json();
-      console.log("✅ Response from backend:", data);
+      console.log(" Response from backend:", data);
 
       if (res.ok) {
-        alert("✅ VOIC (SBT) generation request sent successfully!");
+        alert(" VOIC (SBT) generation request sent successfully!");
         setNftExists(true);
       } else {
-        alert(`❌ Error: ${data.error || "Something went wrong"}`);
+        alert(` Error: ${data.error || "Something went wrong"}`);
       }
     } catch (err) {
-      console.error("❌ Error while minting VOIC:", err);
+      console.error(" Error while minting VOIC:", err);
       alert("Failed to connect to backend");
     } finally {
       setLoading(false);
@@ -336,30 +329,30 @@ export default function Organization() {
     try {
       setLoading(true);
 
-      // 🔍 STEP 1: Validate NFT metadata
+      //  STEP 1: Validate NFT metadata
       if (!nftMetadata) {
-        console.warn("❌ No NFT metadata available in state.");
+        console.warn(" No NFT metadata available in state.");
         return;
       }
 
-      // 🔍 STEP 2: Extract and log all possible values clearly
+      //  STEP 2: Extract and log all possible values clearly
       const metaUri =
         nftMetadata?.[0]?.metadata ||
         nftMetadata?.metadata ||
         nftMetadata?.metaUri ||
         null;
 
-      const walletId = org?.walletId || "❌ MISSING";
-      const mockID = session?.mockID || org?.mockID || "❌ MISSING";
+      const walletId = org?.walletId || " MISSING";
+      const mockID = session?.mockID || org?.mockID || " MISSING";
 
-      console.log("🧩 NFT Metadata snapshot:", nftMetadata);
-      console.log("🪙 Wallet ID:", walletId);
-      console.log("🏫 Mock ID:", mockID);
-      console.log("🌐 Meta URI:", metaUri);
+      console.log("NFT Metadata snapshot:", nftMetadata);
+      console.log("Wallet ID:", walletId);
+      console.log("Mock ID:", mockID);
+      console.log("Meta URI:", metaUri);
 
-      // 🔍 STEP 3: Early exit if required fields missing
+      //  STEP 3: Early exit if required fields missing
       if (!metaUri || !walletId || !mockID) {
-        console.error("❌ Required fields missing before backend call:", {
+        console.error(" Required fields missing before backend call:", {
           metaUri,
           walletId,
           mockID,
@@ -370,7 +363,7 @@ export default function Organization() {
         return;
       }
 
-      // ✅ STEP 4: Construct clean payload
+      //  STEP 4: Construct clean payload
       const payload = {
         metaUri,
         walletId,
@@ -378,11 +371,11 @@ export default function Organization() {
       };
 
       console.log(
-        "📤 Final Payload to be sent:",
+        "Final Payload to be sent:",
         JSON.stringify(payload, null, 2)
       );
 
-      // 🔥 STEP 5: Send to backend
+      // STEP 5: Send to backend
       const res = await fetch(`${backendUrl}/api/mint-voic-sbt`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -390,15 +383,15 @@ export default function Organization() {
       });
 
       const data = await res.json();
-      console.log("✅ Response from backend:", data);
+      console.log(" Response from backend:", data);
 
       if (res.ok) {
-        alert("✅ VOIC (SBT) minted successfully!");
+        alert(" VOIC (SBT) minted successfully!");
       } else {
-        alert(`❌ Error: ${data.error || "Something went wrong"}`);
+        alert(` Error: ${data.error || "Something went wrong"}`);
       }
     } catch (err) {
-      console.error("❌ Error while minting VOIC:", err);
+      console.error(" Error while minting VOIC:", err);
       alert("Failed to connect to backend");
     } finally {
       setLoading(false);
@@ -410,7 +403,7 @@ export default function Organization() {
 
   const handleUploadClick = () => {
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // reset previous file
+      fileInputRef.current.value = "";
       fileInputRef.current.click();
     }
   };
@@ -419,7 +412,7 @@ export default function Organization() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // ✅ Validate file size (max 500 KB)
+    //  Validate file size (max 500 KB)
     const maxSize = 500 * 1024;
     if (file.size > maxSize) {
       alert("Logo size should not exceed 500 KB.");
@@ -433,7 +426,7 @@ export default function Organization() {
     const fullName = org.name;
     const shortName = org.shortName;
 
-    // ✅ Prepare form data
+    //  Prepare form data
     const formData = new FormData();
     formData.append("logo", file); // must match multer field name
     formData.append("mockID", mockID ?? "");
@@ -449,7 +442,7 @@ export default function Organization() {
       });
 
       const data = await res.json();
-      console.log("✅ Uploaded Logo Response:", data);
+      console.log(" Uploaded Logo Response:", data);
 
       if (res.ok) {
         alert("Logo uploaded successfully!");
@@ -457,24 +450,19 @@ export default function Organization() {
         alert(`Failed: ${data.message || "Server error"}`);
       }
     } catch (err) {
-      console.error("❌ Upload failed:", err);
+      console.error(" Upload failed:", err);
       alert("Failed to upload logo.");
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white text-gray-800">
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 bg-white shadow-sm border-b border-indigo-100 sticky top-0 z-20">
-        {/* Left: Brand */}
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-6 h-6 text-indigo-600" />
-          <h1 className="font-semibold text-lg text-indigo-700">
-            VishwasPatra
-          </h1>
+          <h1 className="font-semibold text-lg text-indigo-700">TrustLedger</h1>
         </div>
 
-        {/* Right: Burger Menu */}
         <button
           onClick={() => setMenuOpen(true)}
           className="text-indigo-600 hover:text-indigo-800 transition"
@@ -486,7 +474,6 @@ export default function Organization() {
       <AnimatePresence>
         {menuOpen && (
           <>
-            {/* Overlay */}
             <motion.div
               className="fixed inset-0 z-30"
               initial={{ opacity: 0 }}
@@ -495,7 +482,6 @@ export default function Organization() {
               onClick={() => setMenuOpen(false)}
             />
 
-            {/* Sidebar */}
             <motion.aside
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
@@ -506,7 +492,6 @@ export default function Organization() {
                    border-l border-white/40 shadow-[0_8px_30px_rgba(0,0,0,0.15)] 
                    z-40 flex flex-col rounded-l-3xl"
             >
-              {/* Header */}
               <div
                 className="bg-white/50 backdrop-blur-xl 
                         border-b border-white/40 
@@ -514,7 +499,7 @@ export default function Organization() {
                         rounded-tl-3xl shadow-sm"
               >
                 <h2 className="text-lg font-semibold text-indigo-700 tracking-wide drop-shadow-sm">
-                  VishwasPatra
+                  TrustLedger
                 </h2>
                 <button
                   onClick={() => setMenuOpen(false)}
@@ -524,12 +509,10 @@ export default function Organization() {
                 </button>
               </div>
 
-              {/* Wallet */}
               <div className="flex justify-center mt-6 mb-3">
                 <TonConnectButton />
               </div>
 
-              {/* Menu Items */}
               <nav className="flex-1 px-3 mt-3 space-y-2 overflow-y-auto">
                 {menuItems.map((item, idx) => (
                   <motion.button
@@ -575,7 +558,7 @@ export default function Organization() {
                 </motion.button>
 
                 <p className="text-[11px] text-center text-gray-500 mt-3 opacity-80">
-                  © {new Date().getFullYear()} VishwasPatra
+                  © {new Date().getFullYear()} TrustLedger
                 </p>
               </div>
             </motion.aside>
@@ -583,9 +566,7 @@ export default function Organization() {
         )}
       </AnimatePresence>
 
-      {/* Dashboard Content */}
       <main className="p-6 max-w-5xl mx-auto">
-        {/* Welcome */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-indigo-700">
             Welcome, {org.adminName || "Admin"} 👋
@@ -596,7 +577,6 @@ export default function Organization() {
           </p>
         </div>
 
-        {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
           <StatCard
             icon={<Users className="text-indigo-600 w-6 h-6" />}
@@ -610,7 +590,6 @@ export default function Organization() {
           />
         </div>
 
-        {/* Quick Actions */}
         <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
             Quick Actions
@@ -714,7 +693,6 @@ export default function Organization() {
   );
 }
 
-/* --- Sub Components --- */
 function StatCard({
   icon,
   label,

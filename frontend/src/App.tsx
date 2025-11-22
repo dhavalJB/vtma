@@ -71,7 +71,7 @@ function SessionManager({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <TonConnectUIProvider manifestUrl="https://vishwaspatra.netlify.app/tonconnect-manifest.json">
+    <TonConnectUIProvider manifestUrl="https://TrustLedger.netlify.app/tonconnect-manifest.json">
       <SessionContext.Provider value={{ session, setSession, logout }}>
         {children}
       </SessionContext.Provider>

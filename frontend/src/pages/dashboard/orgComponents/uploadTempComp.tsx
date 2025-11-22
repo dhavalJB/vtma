@@ -56,7 +56,7 @@ export default function UploadTempComp() {
   const [modalTemplate, setModalTemplate] = useState<any>(null);
   const [message, setMessage] = useState("");
 
-  // ⚠️ NEW STATE: Controls the view inside the template modal (Preview vs Source Code)
+  //  NEW STATE: Controls the view inside the template modal (Preview vs Source Code)
   const [modalView, setModalView] = useState<"preview" | "source">("preview");
 
   // Hardcoded for public access based on backend rules
@@ -75,7 +75,7 @@ export default function UploadTempComp() {
         if (collegeSnap.exists()) {
           const data = collegeSnap.data();
 
-          // 🧩 Extract correct logo entry (handles both string + object)
+          // TrustLedger Extract correct logo entry (handles both string + object)
           let logoURL = "";
           let logoContractAddress = "";
 
@@ -98,7 +98,7 @@ export default function UploadTempComp() {
           console.log("🏫 Logo URL:", logoURL);
           console.log("🏦 Logo Contract Address:", logoContractAddress);
 
-          // 🧾 Merge logo info into details
+          //  Merge logo info into details
           setCollegeDetails({
             ...data,
             logoURL,
@@ -108,10 +108,10 @@ export default function UploadTempComp() {
           // ⚙️ Handle templates (arrayUnion support)
           setTemplates(data?.templates || []);
         } else {
-          console.warn(`⚠️ College not found for mockID: ${mockID}`);
+          console.warn(` College not found for mockID: ${mockID}`);
         }
       } catch (err) {
-        console.error("❌ Error fetching data:", err);
+        console.error(" Error fetching data:", err);
         setMessage("Error fetching data. Check console.");
       } finally {
         setLoading(false);
@@ -141,14 +141,14 @@ export default function UploadTempComp() {
           ).toFixed(2)} MB`
         );
       } else {
-        console.warn("⚠️ File content was not a string.");
+        console.warn(" File content was not a string.");
         setMessage("Unexpected file format.");
         setRawFileContent(null);
       }
     };
 
     reader.onerror = () => {
-      console.error("❌ Error reading file.");
+      console.error(" Error reading file.");
       setMessage("Error reading file.");
       setRawFileContent(null);
     };
@@ -227,7 +227,7 @@ export default function UploadTempComp() {
         `Template "${certificateName}" saved in ${chunks.length} chunks! Template ID: ${templateId}`
       );
     } catch (err: any) {
-      console.error("❌ Error during chunked upload:", err);
+      console.error(" Error during chunked upload:", err);
       setMessage(`An error occurred: ${err.message}. Check console.`);
     } finally {
       setUploading(false);
@@ -237,19 +237,19 @@ export default function UploadTempComp() {
   // --- Function: Retrieve and Reassemble Content ---
   const fetchTemplateContent = async (template: any) => {
     try {
-      // 🧩 Step 1: Fetch the college details first
+      // TrustLedger Step 1: Fetch the college details first
       const collegeRef = doc(db, "colleges", mockID);
       const collegeSnap = await getDoc(collegeRef);
 
       if (!collegeSnap.exists()) {
-        console.warn("⚠️ College not found for mockID:", mockID);
+        console.warn(" College not found for mockID:", mockID);
         setMessage("College data missing.");
         return;
       }
 
       const collegeData = collegeSnap.data();
 
-      // 🧩 Step 2: Extract correct logo URL + contract address
+      // TrustLedger Step 2: Extract correct logo URL + contract address
       let logoURL = "";
       let logoContractAddress = "";
 
@@ -272,15 +272,15 @@ export default function UploadTempComp() {
       console.log("🏫 College Logo URL:", logoURL);
       console.log("🔗 Logo Contract Address:", logoContractAddress);
 
-      // 🧩 Step 3: Fetch the HTML template content
+      // TrustLedger Step 3: Fetch the HTML template content
       let fullContent = await fetchTemplateContentFromFirestore(template);
 
-      // 🧩 Step 4: Replace only {{CollegeLogoURL}}
+      // TrustLedger Step 4: Replace only {{CollegeLogoURL}}
       if (logoURL) {
         fullContent = fullContent.replace(/{{CollegeLogoURL}}/g, logoURL);
       }
 
-      // 🧩 Step 5: Make logo clickable to TON NFT page
+      // TrustLedger Step 5: Make logo clickable to TON NFT page
       if (logoContractAddress) {
         const nftLink = `https://testnet.tonviewer.com/${logoContractAddress}?section=nft`;
         fullContent = fullContent.replace(
@@ -289,7 +289,7 @@ export default function UploadTempComp() {
         );
       }
 
-      // 🧩 Step 6: Set the preview modal content
+      // TrustLedger Step 6: Set the preview modal content
       setModalTemplate({
         ...template,
         htmlContent: fullContent,
@@ -297,9 +297,9 @@ export default function UploadTempComp() {
       });
 
       setModalView("preview");
-      setMessage(`✅ Retrieved ${template.certificateName}`);
+      setMessage(` Retrieved ${template.certificateName}`);
     } catch (err: any) {
-      console.error("❌ Error fetching template:", err);
+      console.error(" Error fetching template:", err);
       setMessage(`Failed: ${err.message || "Unknown error"}`);
     }
   };
@@ -340,7 +340,7 @@ export default function UploadTempComp() {
           text-white font-semibold rounded-xl px-8 py-3 shadow-md hover:shadow-xl 
           transition-all duration-300 transform hover:scale-105"
           >
-            ⬆️ Upload New Template
+             Upload New Template
           </button>
         </div>
 
@@ -438,12 +438,12 @@ export default function UploadTempComp() {
                   }`}
                 >
                   {file
-                    ? `✅ File ready: ${file.name} (${(
+                    ? ` File ready: ${file.name} (${(
                         file.size /
                         1024 /
                         1024
                       ).toFixed(2)} MB)`
-                    : "📄 Drag & Drop or Click to Upload (.html file)"}
+                    : "Drag & Drop or Click to Upload (.html file)"}
                 </div>
               </div>
 

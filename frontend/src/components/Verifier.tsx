@@ -10,7 +10,7 @@ export default function Verifier() {
   const BackendURL = import.meta.env.VITE_BACKEND_URL;
   const FrontendURL = import.meta.env.VITE_FRONTEND_URL;
 
-  // ✅ Unified verification (handles hash or file)
+  //  Unified verification (handles hash or file)
   const handleVerify = async (
     arg?: string | React.MouseEvent<HTMLButtonElement>
   ) => {
@@ -52,23 +52,23 @@ export default function Verifier() {
       console.log("📡 [Frontend] Backend Response:", data);
       setResult(data);
     } catch (err) {
-      console.error("❌ [Frontend] Verification Error:", err);
+      console.error(" [Frontend] Verification Error:", err);
       alert("Verification failed. Please try again.");
     } finally {
       setVerifying(false);
     }
   };
 
-  // ✅ Auto-check for hash in URL (runs once)
+  //  Auto-check for hash in URL (runs once)
   useEffect(() => {
     const url = window.location.href;
     console.log("🌐 Current URL:", url);
 
-    // ✅ Support both ?hash= and ?verify-hash=
+    //  Support both ?hash= and ?verify-hash=
     const match = url.match(/[?&](?:verify-hash|hash)=([a-f0-9]+)/i);
     if (match && match[1]) {
       const hash = match[1];
-      console.log("🔍 [Frontend] Auto-verifying using hash from URL:", hash);
+      console.log(" [Frontend] Auto-verifying using hash from URL:", hash);
       handleVerify(hash);
     } else {
       console.log(
@@ -77,7 +77,7 @@ export default function Verifier() {
     }
   }, []);
 
-  // ✅ Handles user file upload
+  //  Handles user file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
@@ -96,7 +96,7 @@ export default function Verifier() {
           const parsed = JSON.parse(keywords);
           compositeHash = parsed.compositeHash || "—";
         } catch {
-          console.warn("⚠️ Could not parse keywords JSON from PDF metadata.");
+          console.warn(" Could not parse keywords JSON from PDF metadata.");
         }
       }
 
@@ -105,7 +105,7 @@ export default function Verifier() {
         compositeHash
       );
     } catch (err) {
-      console.error("❌ [Frontend] Failed to process uploaded PDF:", err);
+      console.error(" [Frontend] Failed to process uploaded PDF:", err);
     }
   };
 
@@ -118,28 +118,28 @@ export default function Verifier() {
 
       console.log("🔒 [Verifier] Secure downloading verified PDF...");
 
-      // 1️⃣ Fetch the original verified PDF
+      //  Fetch the original verified PDF
       const pdfBytes = await fetch(result.pdfUrl).then((res) =>
         res.arrayBuffer()
       );
       const pdfDoc = await PDFDocument.load(pdfBytes);
 
-      // 2️⃣ Embed VishwasPatra verification metadata
+      //  Embed TrustLedger verification metadata
       const compositeHash = result.compositeHash || "unknown";
-      pdfDoc.setTitle("VishwasPatra Verified Certificate");
-      pdfDoc.setAuthor(result.collegeName || "VishwasPatra");
+      pdfDoc.setTitle("TrustLedger Verified Certificate");
+      pdfDoc.setAuthor(result.collegeName || "TrustLedger");
       pdfDoc.setSubject("Blockchain Authenticated Certificate");
-      pdfDoc.setProducer("VishwasPatra DApp");
+      pdfDoc.setProducer("TrustLedger DApp");
       pdfDoc.setCreator("Meta Realm | TON + IPFS");
       pdfDoc.setKeywords([
         JSON.stringify({
           compositeHash,
-          verifiedBy: "VishwasPatra",
+          verifiedBy: "TrustLedger",
           version: "v1",
         }),
       ]);
 
-      // 3️⃣ Add verification QR (for easy re-verification)
+      //  Add verification QR (for easy re-verification)
       const verifyUrl = `${FrontendURL}/verifier?verify-hash=${compositeHash}`;
       const qrDataUrl = await import("qrcode").then((q) =>
         q.default.toDataURL(verifyUrl, { margin: 1, width: 100 })
@@ -160,7 +160,7 @@ export default function Verifier() {
       });
 
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      lastPage.drawText("Verify at VishwasPatra", {
+      lastPage.drawText("Verify at TrustLedger", {
         x: width - qrSize - margin - 10,
         y: margin - 10,
         size: 10,
@@ -179,19 +179,19 @@ export default function Verifier() {
       link.download = `${result.collegeRegId || "Verified"}_Certificate.pdf`;
       link.click();
 
-      console.log("✅ [Verifier] Secure verified PDF downloaded.");
+      console.log(" [Verifier] Secure verified PDF downloaded.");
     } catch (err) {
-      console.error("❌ [Verifier] Secure download failed:", err);
+      console.error(" [Verifier] Secure download failed:", err);
       alert("Failed to securely download the verified certificate.");
     }
   };
 
-  // ✅ UI Rendering
+  //  UI Rendering
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-b from-indigo-50 via-white to-blue-50">
       {/* Header */}
       <header className="w-full bg-white shadow-sm py-3 px-4 flex justify-between items-center border-b border-indigo-100">
-        <h1 className="text-lg font-bold text-indigo-700">VishwasPatra</h1>
+        <h1 className="text-lg font-bold text-indigo-700">TrustLedger</h1>
         <span className="text-[11px] text-gray-500 font-medium">
           Secure Verification
         </span>
@@ -271,7 +271,7 @@ export default function Verifier() {
               )}
             </>
           ) : (
-            // ✅ Verified Certificate Card
+            //  Verified Certificate Card
             <div className="text-left space-y-3">
               {/* College Branding */}
               <div className="flex flex-col items-center">
@@ -366,7 +366,7 @@ export default function Verifier() {
       <footer className="w-full py-3 text-center text-[11px] text-gray-500 border-t bg-white">
         <p>
           Powered by{" "}
-          <span className="font-semibold text-indigo-600">VishwasPatra</span> |
+          <span className="font-semibold text-indigo-600">TrustLedger</span> |
           TON Network
         </p>
       </footer>
