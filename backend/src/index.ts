@@ -35,7 +35,7 @@ app.use("/verify", verificationRoute);
     app.listen(PORT, () => {
       console.log(`⚡ Server running on port ${PORT}`);
 
-      const PING_URL = "https://vtma.onrender.com";
+      const PING_URL = "https://vtma-9ikp.onrender.com";
       setInterval(async () => {
         try {
           const res = await fetch(PING_URL);
